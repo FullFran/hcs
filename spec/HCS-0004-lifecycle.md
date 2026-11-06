@@ -74,3 +74,4 @@ A host that emits telemetry for lifecycle transitions SHOULD use OpenTelemetry a
 - OQ-0004-3: lifecycle event names and whether they are CloudEvents types ([docs/standards/cloudevents.md](../docs/standards/cloudevents.md)).
 - OQ-0004-4: state persistence across host restarts.
 - OQ-0004-5: a `failed` entry's recovery path (retry versus a new desired set).
+- OQ-0004-6: out-of-band modification of a prepared or active entry's content (someone edited installed files). The first host detects it and stops reconciling until an operator intervenes; whether HCS defines the condition, its error code, and the host's duty, is open ([ADR-0014](../docs/adr/0014-profile-error-codes-join-the-core-registry.md)).
