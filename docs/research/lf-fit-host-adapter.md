@@ -27,12 +27,13 @@ The criteria are those of [lf-fit-distro-1-and-core-0.md](lf-fit-distro-1-and-co
 | 5 | Instructions, agents, commands, policies | **Fits with changes** | Not promoted to core kinds (one harness; same reasoning as issue #3 in the earlier note, row 15). AGENTS.md content is a SHOULD. Policies may only narrow host-owned settings. The host's ad hoc "they arrive but nothing reads them" becomes a reported `unsupported_contribution`. |
 | 6 | Precedence: host-owned settings cannot be replaced, removed or widened (R007); generation collisions rejected (R006) | **Fits with changes** | Derived from UAPI.6 layering, not invented. Changed from the host: the list of host-owned settings is declared by the host instead of hard-coded, and HCS defines no settings vocabulary (as HCS-0005 defines no permission vocabulary). Same-name collisions between generation packages are rejected instead of resolved by scan order. |
 | 7 | One generation per engine run (R001, R002) | **Fits with changes** | Stated as what the engine sees, not as "use symlinks". Changed from the server-side box host: its static path through the `active` pointer does not conform. |
-| 8 | Every contribution projected or reported; active only if projected (R003 to R005) | **Fits** | Applies the existing HCS-0001-R008 at projection time; no new concept. |
+| 8 | Every contribution projected or reported; active only if projected (R003 to R005); unprojectable entries do not fail the switch (R017) | **Fits** | Applies the existing HCS-0001-R008 at projection time; no new concept. R017 ([ADR-0022](../adr/0022-host-adapter-open-questions-decided.md)) keeps one engine's gap from blocking a signed set it does not own; `all-or-nothing` stays for the catalog. |
 | 9 | Confirm after health, one attempt, one rollback (R013 to R016) | **Fits with changes** | Reuses the UAPI.1 boot counting state model with N fixed to 1, the desktop host's behaviour. Changed from the server-side box host: confirmation moves from the sync service to after an engine run. HCS names no health protocol; R014 (loaded-set check) is a MUST only where the engine exposes the set. |
-| 10 | Error codes | **Fits** | No new codes; five existing codes get wider "Raised when" text and HCS-0008 in their "Defined by" column, as ADR-0014 prescribes. A dedicated health-check code waits for a consumer (OQ-0008-4). |
+| 10 | Error codes | **Fits** | No new codes; five existing codes get wider "Raised when" text and HCS-0008 in their "Defined by" column, as ADR-0014 prescribes. No dedicated health-check code: health is a state (`healthy`, `unhealthy`, `unknown`, R018), as in Kubernetes conditions, gRPC health and boot assessment (ADR-0022). |
 | 11 | `projection` conformance level and reference projection | **Fits** | Same pattern as `resolution` and `authority`: an executable reading of the rules. Host-level requirements stay `pending`; the runner is not a host. |
 | 12 | Six new standards notes | **Fits** | Pinned by tag or commit, licences recorded, governance stated. The UAPI Group is a community, not a foundation [F]; HCS cites its specifications as precedent, not as normative dependencies. |
 | 13 | Promote the host's materializer code into HCS | **Does not fit; not done** | It would copy private code and make HCS depend on one host. The implementation brief for the first host lives outside this repository. |
+| 14 | Maintainer decisions of 2026-11-06 ([ADR-0022](../adr/0022-host-adapter-open-questions-decided.md)): no core `instructions` kind, no health code, no adapter profile, agents and commands per engine | **Fits** | Each declines to standardise what has one implementation; none changes an earlier verdict. |
 
 ## 3. Reuse versus invention
 
@@ -49,7 +50,7 @@ The criteria are those of [lf-fit-distro-1-and-core-0.md](lf-fit-distro-1-and-co
 
 ## 4. Two implementations and stability
 
-- HCS-0008 is `Draft` and `Provisional`. It is in no profile (OQ-0008-6).
+- HCS-0008 is `Draft` and `Provisional`. It is in no profile; a host adapter profile waits for a second host (ADR-0022, decision 4).
 - One host implements part of it (the desktop host: skills, health, one rollback) and none conforms: the server-side box host fails R001, R002 and R013, and no host projects MCP, instructions or policies.
 - Two engines' mechanisms in appendix A come from one host's observations [H in [host-adapter-standards.md](host-adapter-standards.md)]; a second host would confirm or correct them.
 

@@ -17,5 +17,5 @@ The first host resolves, verifies and prepares generations (HCS-0003, HCS-0007),
 ## Consequences
 
 - The first host can build one shared materializer against R001 to R016 and claim nothing it cannot show; R001, R002, R008 and R013 to R016 stay `pending` until a host adapter runs them.
-- "Active" becomes honest: under DISTRO-1's `all-or-nothing`, an entry an engine cannot take fails the transition (R005), so distributions must target catalogs per engine capability. That is a behaviour change for the first host.
+- "Active" becomes honest: an entry an engine cannot take is reported and not active on that engine (R005); it does not fail the transition (R017, [ADR-0022](0022-host-adapter-open-questions-decided.md)). That is a behaviour change for the first host.
 - Alternatives rejected: a full HCS engine-configuration format (one HCS file every engine would read) would invent a standard no engine implements; leaving projection to each host keeps the gap that motivated this.

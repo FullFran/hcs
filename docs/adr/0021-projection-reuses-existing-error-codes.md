@@ -21,5 +21,5 @@ Reuse, and widen the "Raised when" text of, existing codes:
 ## Consequences
 
 - No schema change; consumers need no new branch.
-- `plugin_failed` for a health check blurs "package code crashed" and "engine did not come up". OQ-0008-4 records a dedicated code if a consumer needs to tell them apart.
+- `plugin_failed` for a health check blurs "package code crashed" and "engine did not come up". [ADR-0022](0022-host-adapter-open-questions-decided.md) decided against a dedicated code: health is reported as a state (HCS-0008-R018), as Kubernetes, gRPC health and boot assessment do.
 - Alternative rejected: new codes `projection_conflict` and `health_check_failed`. Clearer names, but no consumer branches on the difference yet.

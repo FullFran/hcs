@@ -12,7 +12,7 @@ The first host ships instruction files (agents, commands, instructions) and poli
 - HCS-0008's general rules apply to them: projected or reported (R003 to R005), never overriding host-owned settings (R007).
 - Instruction content SHOULD be plain Markdown in the AGENTS.md convention, with no structure inside the file.
 - A policy contribution can only narrow host-owned permissions; it never grants (HCS-0005-R002).
-- OQ-0008-1 records promoting `instructions` (AGENTS.md content) to a core kind when a second harness ships instruction packages.
+- Promoting `instructions` (AGENTS.md content) to a core kind waits for a second harness ([ADR-0022](0022-host-adapter-open-questions-decided.md), decision 1).
 
 ## Consequences
 

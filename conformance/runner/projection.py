@@ -13,6 +13,8 @@ Input (case `input`):
   activationPolicy: "all-or-nothing" | "partial" (HCS-0003 step 6).
 
 Output: {"errors": [HCS-0006 errors with entry], "selected": [entry ids the host may report active]}.
+`unsupported_contribution` leaves its entry out of `selected` but does not empty it under all-or-nothing
+(HCS-0008-R017); every other error is a failure that does.
 
 Engine-level names: a skill projects "skill/<name>", an MCP server "mcp/<server.json name>"; both with
 effect "add". Extension kinds state their settings, because their meaning is distribution-defined.
@@ -60,19 +62,24 @@ def project(inp):
     host_owned = set(inp.get("hostOwned", []))
     grants = inp.get("grantedSecrets", {})
     entries = inp["generation"]["entries"]
-    errors, failed, claims = [], set(), {}
+    errors, failed, unprojected, claims = [], set(), set(), {}
 
     def fail(code, eid):
         if {"code": code, "entry": eid} not in errors:
             errors.append(_err(code, eid))
         failed.add(eid)
 
+    def report_unsupported(eid):                            # R004; R017: reported, not a failure
+        if {"code": "unsupported_contribution", "entry": eid} not in errors:
+            errors.append(_err("unsupported_contribution", eid))
+        unprojected.add(eid)
+
     for entry in entries:
         eid = entry["id"]
         for c in entry["contributions"]:
             kind = c["kind"]
             if kind not in projectable:                     # R003, R004
-                fail("unsupported_contribution", eid)
+                report_unsupported(eid)
                 continue
             if kind == "skill":
                 settings = [{"name": "skill/" + c["name"], "effect": "add"}]
@@ -100,9 +107,9 @@ def project(inp):
 
     ids = [e["id"] for e in entries]
     if inp.get("activationPolicy", "all-or-nothing") == "partial":
-        selected = [i for i in ids if i not in failed]       # R005
-    else:
-        selected = [] if failed else ids
+        selected = [i for i in ids if i not in failed and i not in unprojected]       # R005
+    else:                                                   # R017: only real failures empty the set
+        selected = [] if failed else [i for i in ids if i not in unprojected]
     return {"errors": errors, "selected": selected}
 
 

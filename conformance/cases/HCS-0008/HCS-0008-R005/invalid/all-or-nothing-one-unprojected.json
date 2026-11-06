@@ -1,5 +1,5 @@
 {
-  "description": "Under all-or-nothing, one entry with an unprojected contribution leaves no entry active; a host that reports the skill entry active is non-conforming.",
+  "description": "Under all-or-nothing, an entry with an unprojected contribution is not active on the engine; a host that reports it active is non-conforming. The other entry stays active (R017).",
   "requirements": [
     "HCS-0008-R005"
   ],
@@ -53,6 +53,8 @@
         "entry": "dev.example.search"
       }
     ],
-    "selected": []
+    "selected": [
+      "dev.example.notes"
+    ]
   }
 }

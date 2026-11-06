@@ -55,7 +55,7 @@ It produces:
 1. the projection for one engine run;
 2. for each entry, either "projected" or the HCS-0006 errors that prevented it.
 
-The host decides from the second output which entries it may report `active` (R005) and, under its activation policy (HCS-0003 step 6), whether the transition proceeds.
+The host decides from the second output which entries it may report `active` on that engine (R005). An entry the engine cannot take does not stop the transition (R017); the other projection errors count against the host's activation policy (HCS-0003 step 6).
 
 ## 4. One generation per engine run
 
@@ -73,7 +73,9 @@ R001 and R002 are the atomicity rule seen from the engine: an engine run sees on
 
 **[HCS-0008-R005]** A host MUST NOT report an entry as `active` unless every contribution of that entry was projected into the engine run.
 
-R005 is HCS-0001-R008 applied at projection time: a host that implements a kind for resolution but whose engine ignores it does not implement that kind. Under `all-or-nothing` (required by DISTRO-1, HCS-0007-R016) one unprojectable entry fails the whole transition, so a distribution sends a host only the kinds its engine can take; under `partial` the other entries proceed.
+**[HCS-0008-R017]** A host MUST NOT fail or roll back a move to a new generation only because an adapter reported `unsupported_contribution`; it MUST treat the reported entry as not selected for activation on that engine and MUST keep it reported until a generation or an engine change lets the adapter project it.
+
+R005 is HCS-0001-R008 applied at projection time: a host that implements a kind for resolution but whose engine ignores it does not implement that kind on that engine. R017 keeps that per-engine fact from deciding the fate of the whole generation: the `all-or-nothing` policy (HCS-0003 step 6, required by DISTRO-1, HCS-0007-R016) governs whether the signed catalog is accepted and resolved, and HCS-0004-R003 applies to the entries selected for activation on the engine; an entry the engine cannot take was never selected there. Other projection errors (`ambiguous_provider`, `permission_denied`, `manifest_invalid`) are failures and count against the activation policy ([ADR-0022](../docs/adr/0022-host-adapter-open-questions-decided.md), decision 2).
 
 ## 6. Projection rules
 
@@ -121,20 +123,22 @@ HCS-0001 defines two core kinds, `skill` and `mcp-server`. Instruction files, ag
 
 **[HCS-0008-R016]** When the engine run started from the confirmed generation after a failure also fails its health check, a host MUST stop and report it, and MUST NOT start a further rollback or retry until a new desired set or an operator action arrives.
 
+**[HCS-0008-R018]** A host that reports the health of an engine run SHOULD report one of the states `healthy`, `unhealthy` or `unknown`, and SHOULD report the failure itself with the codes of R015.
+
+R018 follows how the most widely used health mechanisms report health: a state plus, at most, a free-text or code reason, never a dedicated error code. Kubernetes pod conditions have `status` `True`, `False` or `Unknown` with a machine-readable `reason`; gRPC health returns `SERVING`, `NOT_SERVING` or `UNKNOWN`; boot assessment marks an entry good or bad ([kubernetes-probes.md](../docs/standards/kubernetes-probes.md), [grpc-health.md](../docs/standards/grpc-health.md), [uapi-boot-counting.md](../docs/standards/uapi-boot-counting.md)). No HCS-0006 code is added for a failed health check ([ADR-0022](../docs/adr/0022-host-adapter-open-questions-decided.md), decision 3).
+
 This is UAPI.1 boot counting with one try ([uapi-boot-counting.md](../docs/standards/uapi-boot-counting.md)): a new generation is indeterminate until the running engine, not the installer, proves it; a failed one is not retried; there is exactly one rollback and never a loop. It refines HCS-0007-R018 for engines. The health check itself is host-defined (an HTTP status, a gRPC `Check`, a command); R014 adds the one check every host can make when its engine exposes it. A host with no confirmed generation (first start) that fails R013 stops and reports under R016.
 
 ## 8. Conformance
 
-`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008 and R013 to R016 need a running engine and have `host` cases only, reported `pending`. R009 is a SHOULD and has no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's.
+`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008 and R013 to R016 need a running engine and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009 and R018 are SHOULDs and have no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's.
 
 ## 9. Open questions
 
-- OQ-0008-1: whether `instructions` (AGENTS.md content) becomes a core contribution kind when a second harness ships instruction packages (ADR-0018).
+Closed by [ADR-0022](../docs/adr/0022-host-adapter-open-questions-decided.md) (2026-11-06): OQ-0008-1 (no core `instructions` kind until a second harness), OQ-0008-4 (no health-check code; R018), OQ-0008-5 (unprojectable entries are reported, not fatal; R017), OQ-0008-6 (no host adapter profile until a second host).
+
 - OQ-0008-2: a shared vocabulary for host-owned settings (permission policy, safety proxy, reserved names), so two hosts can declare them the same way (HCS-0005 OQ-0005-1).
 - OQ-0008-3: whether projection outcomes need their own status document, or HCS-0004 status with HCS-0006 errors is enough. The first host needs only the latter.
-- OQ-0008-4: a dedicated error code for a failed health check, if consumers need to tell it apart from a plugin crash (ADR-0021).
-- OQ-0008-5: whether the kinds an adapter can project should be a resolution input (HCS-0003), so that unprojectable entries are dropped before a generation is built, as `platform_incompatible` entries are today.
-- OQ-0008-6: a conformance profile for host adapters, and whether DISTRO-1 hosts must claim it.
 
 ## Appendix A. Engine mappings (non-normative)
 
@@ -153,4 +157,5 @@ Consequences for an adapter, in this document's terms:
 - One generation per run (R001): point `skills.paths`, `--skill` or `--add-dir` at the resolved generation directory (`<generation>/...`), not at `active/...`.
 - Claude Code needs a view of the generation in its own layout: a per-run directory with `.claude/skills/<name>` links to each skill directory of the generation (R008 forbids copying with changes, not linking).
 - MCP: translate `server.json` into the engine's MCP block; write secret inputs as environment references the host fills (R012).
-- An engine column marked "not observed" means the adapter reports `unsupported_contribution` for that kind (R004) until a mapping exists.
+- An engine column marked "not observed" means the adapter reports `unsupported_contribution` for that kind (R004) until a mapping exists; the rest of the generation proceeds (R017).
+- Agent and command definitions are engine-specific and stay per-engine extension kinds outside the normative text; an engine that cannot take them reports them under R004 ([ADR-0022](../docs/adr/0022-host-adapter-open-questions-decided.md), decision 6).
