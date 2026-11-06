@@ -72,6 +72,13 @@
       "source": "spec/HCS-0001-catalog-manifest.md"
     },
     {
+      "id": "HCS-0001-R011",
+      "document": "HCS-0001",
+      "keyword": "MUST",
+      "text": "Every entry MUST declare `mediaType`.",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
       "id": "HCS-0001-R007",
       "document": "HCS-0001",
       "keyword": "MUST",
@@ -97,6 +104,34 @@
       "document": "HCS-0001",
       "keyword": "MUST",
       "text": "A host MUST validate a catalog manifest without executing code from any package.",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
+      "id": "HCS-0001-R012",
+      "document": "HCS-0001",
+      "keyword": "MUST",
+      "text": "A host MUST be able to unpack packages of media type `application/vnd.oci.image.layer.v1.tar+gzip` as described in section 3.4.",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
+      "id": "HCS-0001-R013",
+      "document": "HCS-0001",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT activate an entry whose `mediaType` it does not implement, and MUST report `unsupported_contribution` for that entry.",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
+      "id": "HCS-0001-R014",
+      "document": "HCS-0001",
+      "keyword": "SHOULD",
+      "text": "A producer SHOULD build package archives deterministically, so that `contentHash` changes only when the packaged content changes.",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
+      "id": "HCS-0001-R015",
+      "document": "HCS-0001",
+      "keyword": "SHOULD",
+      "text": "A host SHOULD reject a document that exceeds its declared maximum size or maximum nesting depth with `manifest_invalid` before schema validation, and SHOULD declare limits of at least 4 MiB (4 194 304 bytes) and 64 levels.",
       "source": "spec/HCS-0001-catalog-manifest.md"
     },
     {

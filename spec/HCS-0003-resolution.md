@@ -19,6 +19,7 @@ Input (`resolutionInput` in the schema):
 - `catalog`: an HCS-0001 catalog manifest that already passed document validation.
 - `host.platform`: the host's OCI platform object.
 - `host.contributionKinds`: the contribution kinds the host implements.
+- `host.mediaTypes`: the package media types the host can unpack (HCS-0001 section 3.4).
 - `host.builtins`: capability references the host provides itself.
 
 Output (`resolutionResult`):
@@ -28,7 +29,7 @@ Output (`resolutionResult`):
 
 ## 3. Algorithm
 
-1. **Eligibility.** An entry is ineligible if it has a contribution kind not in `host.contributionKinds` (`unsupported_contribution`, HCS-0001-R008) or a platform list with no match (`platform_incompatible`, HCS-0001-R009).
+1. **Eligibility.** Checked in this order, reporting the first failure only: an entry is ineligible if its `mediaType` is not in `host.mediaTypes` or it has a contribution kind not in `host.contributionKinds` (`unsupported_contribution`, HCS-0001-R013, HCS-0001-R008), or if it has a platform list with no match (`platform_incompatible`, HCS-0001-R009).
 2. **Providers.** Each eligible entry provides the union of its contributions' `provides`. The host provides `host.builtins`.
 3. **Matching.** For each eligible entry and each reference in its `requires`, the candidate providers are the host and the other eligible entries that provide that exact reference. An entry never satisfies its own requirement.
 4. **Propagation.** An entry with an unsatisfied requirement fails. Repeat step 2 to 4 without failed entries until nothing changes.

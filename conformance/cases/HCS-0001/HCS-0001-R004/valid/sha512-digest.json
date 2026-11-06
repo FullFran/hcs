@@ -15,6 +15,7 @@
         "version": "1.0.0",
         "contentHash": "sha512:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f",
         "size": 10,
+        "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
         "contributions": [
           {
             "kind": "skill",

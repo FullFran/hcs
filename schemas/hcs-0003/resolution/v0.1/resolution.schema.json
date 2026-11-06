@@ -6,13 +6,19 @@
   "$defs": {
     "host": {
       "type": "object",
-      "required": ["platform", "contributionKinds", "builtins"],
+      "required": ["platform", "contributionKinds", "mediaTypes", "builtins"],
       "properties": {
         "platform": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/platform" },
         "contributionKinds": {
           "type": "array",
           "uniqueItems": true,
           "items": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/contribution/properties/kind" }
+        },
+        "mediaTypes": {
+          "description": "Package media types the host can unpack (HCS-0001-R013).",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/entry/properties/mediaType" }
         },
         "builtins": { "$ref": "urn:hcs:schema:hcs-0002:capability:0.1#/$defs/capabilityRefList" }
       },

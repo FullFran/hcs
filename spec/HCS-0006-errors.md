@@ -43,7 +43,7 @@ A host that composes plugins fails in a small number of ways that callers need t
 | `unsupported_hcs_version` | `hcsVersion` names a contract the host does not implement | HCS-0001 |
 | `duplicate_entry` | two catalog entries share an `id` | HCS-0001 |
 | `integrity_mismatch` | fetched content does not match `size` or `contentHash` | HCS-0001 |
-| `unsupported_contribution` | the host does not implement a contribution `kind` | HCS-0001 |
+| `unsupported_contribution` | the host does not implement a contribution `kind` or the entry's package `mediaType` | HCS-0001 |
 | `platform_incompatible` | no `compatibility.platforms` item matches the host platform | HCS-0001 |
 | `missing_dependency` | no entry or host built-in provides a required capability id | HCS-0003 |
 | `version_incompatible` | the capability id is provided, but not at the required contract major | HCS-0003 |

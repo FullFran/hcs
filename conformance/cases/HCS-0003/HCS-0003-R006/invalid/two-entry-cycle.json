@@ -15,6 +15,7 @@
           "version": "1.0.0",
           "contentHash": "sha256:abababababababababababababababababababababababababababababababab",
           "size": 10,
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
           "contributions": [
             {
               "kind": "skill",
@@ -33,6 +34,7 @@
           "version": "1.0.0",
           "contentHash": "sha256:abababababababababababababababababababababababababababababababab",
           "size": 10,
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
           "contributions": [
             {
               "kind": "skill",
@@ -51,6 +53,7 @@
           "version": "1.0.0",
           "contentHash": "sha256:abababababababababababababababababababababababababababababababab",
           "size": 10,
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
           "contributions": [
             {
               "kind": "skill",
@@ -66,6 +69,7 @@
           "version": "1.0.0",
           "contentHash": "sha256:abababababababababababababababababababababababababababababababab",
           "size": 10,
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
           "contributions": [
             {
               "kind": "skill",
@@ -83,6 +87,9 @@
       "contributionKinds": [
         "skill",
         "mcp-server"
+      ],
+      "mediaTypes": [
+        "application/vnd.oci.image.layer.v1.tar+gzip"
       ],
       "builtins": []
     }

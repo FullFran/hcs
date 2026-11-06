@@ -115,7 +115,8 @@ def resolve(inp):
     entries = {e["id"]: e for e in catalog["entries"]}
     errors, failed = [], set()
     for eid, e in entries.items():
-        if any(c["kind"] not in host["contributionKinds"] for c in e["contributions"]):
+        if e["mediaType"] not in host["mediaTypes"] or any(
+                c["kind"] not in host["contributionKinds"] for c in e["contributions"]):
             errors.append(err("unsupported_contribution", eid)); failed.add(eid)
         elif "platforms" in e.get("compatibility", {}) and not any(
                 platform_matches(p, host["platform"]) for p in e["compatibility"]["platforms"]):
