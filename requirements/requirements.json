@@ -107,6 +107,13 @@
       "source": "spec/HCS-0001-catalog-manifest.md"
     },
     {
+      "id": "HCS-0001-R016",
+      "document": "HCS-0001",
+      "keyword": "MUST NOT",
+      "text": "When `compatibility.hosts` is present, a host MUST NOT activate the entry unless one item names the host's id and lists the host's version exactly, and MUST report `version_incompatible` otherwise.",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
       "id": "HCS-0001-R012",
       "document": "HCS-0001",
       "keyword": "MUST",

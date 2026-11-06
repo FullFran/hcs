@@ -46,6 +46,17 @@
       "patternProperties": { "^x-[a-z0-9]+(-[a-z0-9]+)*$": true },
       "additionalProperties": false
     },
+    "hostCompatibility": {
+      "description": "A host id and the exact host versions an entry runs on (HCS-0001-R016).",
+      "type": "object",
+      "required": ["id", "versions"],
+      "properties": {
+        "id": { "$ref": "urn:hcs:schema:hcs-0000:common:0.1#/$defs/dottedId" },
+        "versions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/opaqueVersion" } }
+      },
+      "patternProperties": { "^x-[a-z0-9]+(-[a-z0-9]+)*$": true },
+      "additionalProperties": false
+    },
     "contribution": {
       "type": "object",
       "required": ["kind", "path"],
@@ -85,7 +96,8 @@
         "compatibility": {
           "type": "object",
           "properties": {
-            "platforms": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/platform" } }
+            "platforms": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/platform" } },
+            "hosts": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/hostCompatibility" } }
           },
           "patternProperties": { "^x-[a-z0-9]+(-[a-z0-9]+)*$": true },
           "additionalProperties": false

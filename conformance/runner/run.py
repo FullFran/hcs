@@ -121,6 +121,9 @@ def resolve(inp):
         elif "platforms" in e.get("compatibility", {}) and not any(
                 platform_matches(p, host["platform"]) for p in e["compatibility"]["platforms"]):
             errors.append(err("platform_incompatible", eid)); failed.add(eid)
+        elif "hosts" in e.get("compatibility", {}) and not any(
+                h["id"] == host.get("id") and host.get("version") in h["versions"] for h in e["compatibility"]["hosts"]):
+            errors.append(err("version_incompatible", eid)); failed.add(eid)
 
     def provides(eid):
         return {r for c in entries[eid]["contributions"] for r in c.get("provides", [])}

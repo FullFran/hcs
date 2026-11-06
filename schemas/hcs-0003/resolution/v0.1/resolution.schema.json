@@ -7,7 +7,10 @@
     "host": {
       "type": "object",
       "required": ["platform", "contributionKinds", "mediaTypes", "builtins"],
+      "dependentRequired": { "id": ["version"], "version": ["id"] },
       "properties": {
+        "id": { "$ref": "urn:hcs:schema:hcs-0000:common:0.1#/$defs/dottedId" },
+        "version": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/opaqueVersion" },
         "platform": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/platform" },
         "contributionKinds": {
           "type": "array",

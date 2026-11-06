@@ -63,7 +63,7 @@ Out of scope here: signing, freshness and rollback protection of the manifest (D
 | `locations` | no | array of URI | where the bytes can be fetched; hints only, integrity comes from `contentHash` and `size` |
 | `contributions` | yes | array of contribution, ≥ 1 | what the package adds to the host |
 | `requires` | no | array of capability ref | capabilities the package needs (HCS-0002, HCS-0003) |
-| `compatibility` | no | object | where the package can run (3.3) |
+| `compatibility` | no | object | where the package can run: platforms and hosts (3.3) |
 | `x-*` | no | any | extension members |
 
 `contentHash` plus `size` mirror the `digest` plus `size` pair of an OCI descriptor and the `hashes` plus `length` pair of a TUF targets entry (see [docs/standards/oci.md](../docs/standards/oci.md)). HCS uses the OCI digest string grammar and restricts the algorithm to `sha256` and `sha512` with lowercase hex.
@@ -86,6 +86,8 @@ Core kinds reference external standards and do not restate them:
 ### 3.3 Compatibility
 
 `compatibility.platforms` is a list of OCI platform objects (`os`, `architecture`, optional `variant`), using the OCI image index values (see [docs/standards/oci.md](../docs/standards/oci.md)). An absent list means "any platform". Packages that ship different bytes per platform are separate entries with distinct ids or a distinct catalog per platform; HCS 0.1 does not define multi-platform entries (OQ-0001-2).
+
+`compatibility.hosts` is a list of items with a host `id` (dotted id, naming a host implementation, not an instance) and `versions`, the exact host versions the entry runs on ([ADR-0012](../docs/adr/0012-host-compatibility-by-exact-versions.md)). Host versions are opaque like package versions ([ADR-0004](../docs/adr/0004-opaque-package-versions.md)), so HCS defines no ranges: an item matches only when its `id` equals the host's id and `versions` contains the host's version as an equal string. An absent list means "any host".
 
 ### 3.4 Package format
 
@@ -128,6 +130,8 @@ A platform item matches when `os` and `architecture` are equal to the host's and
 
 **[HCS-0001-R010]** A host MUST validate a catalog manifest without executing code from any package.
 
+**[HCS-0001-R016]** When `compatibility.hosts` is present, a host MUST NOT activate the entry unless one item names the host's id and lists the host's version exactly, and MUST report `version_incompatible` otherwise.
+
 **[HCS-0001-R012]** A host MUST be able to unpack packages of media type `application/vnd.oci.image.layer.v1.tar+gzip` as described in section 3.4.
 
 **[HCS-0001-R013]** A host MUST NOT activate an entry whose `mediaType` it does not implement, and MUST report `unsupported_contribution` for that entry.
@@ -140,7 +144,7 @@ A platform item matches when `os` and `architecture` are equal to the host's and
 
 - OQ-0001-1: closed. `mediaType` is required and the core package format is the OCI layer media type (section 3.4, [ADR-0011](../docs/adr/0011-package-format-is-an-oci-layer.md)).
 - OQ-0001-2: multi-platform entries (one id, per-platform digests, like an OCI image index).
-- OQ-0001-3: host or harness version compatibility (`compatibility.hosts`). Package versions are opaque, so ranges cannot be evaluated yet.
+- OQ-0001-3: reduced. `compatibility.hosts` with exact version lists is defined (section 3.3, R016). Remaining question: version ranges, which need a version ordering HCS does not define (ADR-0004).
 - OQ-0001-4: closed here. The catalog `version` stays opaque; rollback protection is the envelope `sequence` of [HCS-0007](HCS-0007-signed-catalog.md).
 - OQ-0001-5: closed here. The signature input over a catalog is defined by [HCS-0007](HCS-0007-signed-catalog.md) section 4.
 - OQ-0001-6: archive member safety (absolute names, `..` segments, links, device files, OCI whiteout entries) when unpacking section 3.4 packages. A host needs a rule; which members HCS forbids and which error a violation reports is open.
