@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""HCS reference conformance runner (document, integrity, resolution and authority levels).
+"""HCS reference conformance runner (document, integrity, resolution, authority and distribution levels).
 
 Usage:
   python3 conformance/runner/run.py [--report PATH] [--selftest] [-v]
 
 It validates every case in conformance/cases against conformance/case.schema.json, executes
-document/integrity/resolution/authority cases with the reference semantics below, reports host
+document/integrity/resolution/authority/distribution cases with the reference semantics below
+(distribution: HCS-0007, implemented in distro1.py), reports host
 cases as pending, and enforces HCS-0000-R001/R002 (case coverage) against
 requirements/requirements.json. Exit code 0 only when every executed case passes and coverage holds.
 
@@ -23,6 +24,9 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import distro1  # noqa: E402
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SUPPORTED_HCS = {"0.1"}
 CATALOG = "urn:hcs:schema:hcs-0001:catalog-manifest:0.1"
@@ -30,6 +34,9 @@ ERROR = "urn:hcs:schema:hcs-0006:error:0.1"
 RESOLUTION = "urn:hcs:schema:hcs-0003:resolution:0.1"
 AUTHORITY = "urn:hcs:schema:hcs-0005:authority:0.1"
 CASE = "urn:hcs:schema:conformance:case:0.1"
+SIGNED = "urn:hcs:schema:hcs-0007:signed-catalog:0.1"
+ENVELOPE = SIGNED + "#/$defs/envelope"
+KEY_SET = SIGNED + "#/$defs/keySet"
 COVERAGE_EXEMPT = {"HCS-0000-R001", "HCS-0000-R002"}
 
 
@@ -83,7 +90,12 @@ def check_catalog(doc):
 def check_document(target, doc):
     if target == CATALOG:
         return check_catalog(doc)
+    if target in (ENVELOPE, KEY_SET) and isinstance(doc, dict) and isinstance(doc.get("hcsVersion"), str) \
+            and doc["hcsVersion"] not in SUPPORTED_HCS:
+        return [err("unsupported_hcs_version")]
     if not schema_valid(target, doc):
+        return [err("manifest_invalid")]
+    if target == KEY_SET and len({k["keyid"] for k in doc["keys"]}) != len(doc["keys"]):
         return [err("manifest_invalid")]
     if target == ERROR + "#/$defs/problemDetails" and doc["type"] != "urn:hcs:error:" + doc["hcsError"]["code"]:
         return [err("manifest_invalid")]
@@ -208,6 +220,35 @@ def evaluate(inp):
                                       "message": f"{chk['entry']} has no grant for {chk['permission']}"}}
 
 
+# ---------- distribution level (HCS-0007) ----------
+
+def run_distribution(inp):
+    """Returns (errors, signing input or None). See conformance/README.md for the input shapes."""
+    check = inp["check"]
+    if check == "signing-input":
+        try:
+            return [], distro1.signing_input(inp["payloadType"], inp["document"]).decode("utf-8")
+        except distro1.CanonicalError:
+            return [err("manifest_invalid")], None
+    now, anchor = inp["now"], inp["trustAnchor"]
+    if not schema_valid(SIGNED + "#/$defs/trustAnchor", anchor):
+        raise ValueError("trust anchor does not match its schema")
+    errors = check_document(KEY_SET, inp["keySet"])
+    if errors:
+        return errors, None
+    code = distro1.check_key_set(inp["keySet"], anchor, inp.get("lastKeySet"), now)
+    if code or check == "key-set":
+        return ([err(code)] if code else []), None
+    envelope = inp["envelope"]
+    errors = check_document(ENVELOPE, envelope)
+    if errors:
+        return errors, None
+    code = distro1.check_envelope(envelope, inp["keySet"], inp["assignment"], inp.get("lastAccepted"), now)
+    if code:
+        return [err(code)], None
+    return check_catalog(envelope["catalog"]), None
+
+
 # ---------- case execution ----------
 
 def norm(errors):
@@ -223,6 +264,15 @@ def run_case(case):
         outcome = "invalid" if errors else "valid"
         ok = outcome == exp["outcome"] and ("errors" not in exp or norm(errors) == norm(exp["errors"]))
         return ("pass" if ok else "fail"), {"outcome": outcome, "errors": errors}
+    if level == "distribution":
+        errors, signing = run_distribution(inp)
+        got = {"outcome": "invalid" if errors else "valid", "errors": errors}
+        if signing is not None:
+            got["signingInput"] = signing
+        ok = ("outcome" not in exp or got["outcome"] == exp["outcome"]) and (
+            "errors" not in exp or norm(errors) == norm(exp["errors"])) and (
+            "signingInput" not in exp or signing == exp["signingInput"])
+        return ("pass" if ok else "fail"), got
     if level == "resolution":
         got = resolve(inp)
         assert schema_valid(RESOLUTION + "#/$defs/resolutionResult",
@@ -267,6 +317,7 @@ def selftest():
 def main(argv):
     if "--selftest" in argv:
         selftest()
+        distro1.selftest()
     verbose = "-v" in argv
     requirements = json.loads((ROOT / "requirements" / "requirements.json").read_text())["requirements"]
     case_validator = validator_for(CASE)
