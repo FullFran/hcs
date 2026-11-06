@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hcs:schema:hcs-0003:resolution:0.1",
+  "title": "HCS resolution input and result",
+  "description": "Input and output of catalog resolution (HCS-0003).",
+  "$defs": {
+    "host": {
+      "type": "object",
+      "required": ["platform", "contributionKinds", "builtins"],
+      "properties": {
+        "platform": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/platform" },
+        "contributionKinds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/contribution/properties/kind" }
+        },
+        "builtins": { "$ref": "urn:hcs:schema:hcs-0002:capability:0.1#/$defs/capabilityRefList" }
+      },
+      "patternProperties": { "^x-[a-z0-9]+(-[a-z0-9]+)*$": true },
+      "additionalProperties": false
+    },
+    "resolutionInput": {
+      "type": "object",
+      "required": ["catalog", "host"],
+      "properties": {
+        "catalog": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1" },
+        "host": { "$ref": "#/$defs/host" }
+      },
+      "additionalProperties": false
+    },
+    "resolutionResult": {
+      "type": "object",
+      "required": ["activationOrder", "errors"],
+      "properties": {
+        "activationOrder": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/packageId" }
+        },
+        "errors": { "type": "array", "items": { "$ref": "urn:hcs:schema:hcs-0006:error:0.1" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

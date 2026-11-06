@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hcs:schema:hcs-0005:authority:0.1",
+  "title": "HCS permission requests, grants and decisions",
+  "description": "Objects of the request/grant model (HCS-0005).",
+  "$defs": {
+    "permissionId": { "$ref": "urn:hcs:schema:hcs-0000:common:0.1#/$defs/dottedId" },
+    "permissionRequest": {
+      "type": "object",
+      "required": ["permission"],
+      "properties": {
+        "permission": { "$ref": "#/$defs/permissionId" },
+        "reason": { "type": "string", "maxLength": 1024 }
+      },
+      "patternProperties": { "^x-[a-z0-9]+(-[a-z0-9]+)*$": true },
+      "additionalProperties": false
+    },
+    "requestDocument": {
+      "type": "object",
+      "required": ["hcsVersion", "entry", "requests"],
+      "properties": {
+        "hcsVersion": { "const": "0.1" },
+        "entry": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/packageId" },
+        "requests": { "type": "array", "items": { "$ref": "#/$defs/permissionRequest" } }
+      },
+      "patternProperties": { "^x-[a-z0-9]+(-[a-z0-9]+)*$": true },
+      "additionalProperties": false
+    },
+    "grant": {
+      "type": "object",
+      "required": ["entry", "permission"],
+      "properties": {
+        "entry": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/packageId" },
+        "permission": { "$ref": "#/$defs/permissionId" }
+      },
+      "patternProperties": { "^x-[a-z0-9]+(-[a-z0-9]+)*$": true },
+      "additionalProperties": false
+    },
+    "check": {
+      "type": "object",
+      "required": ["entry", "permission"],
+      "properties": {
+        "entry": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/packageId" },
+        "permission": { "$ref": "#/$defs/permissionId" }
+      },
+      "additionalProperties": false
+    },
+    "decision": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["allow"],
+          "properties": { "allow": { "const": true } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["allow", "error"],
+          "properties": {
+            "allow": { "const": false },
+            "error": {
+              "allOf": [
+                { "$ref": "urn:hcs:schema:hcs-0006:error:0.1" },
+                { "properties": { "code": { "const": "permission_denied" } } }
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "evaluationInput": {
+      "description": "Input of the reference evaluator used by authority conformance cases.",
+      "type": "object",
+      "required": ["requests", "grants", "check"],
+      "properties": {
+        "requests": { "type": "array", "items": { "$ref": "#/$defs/requestDocument" } },
+        "grants": { "type": "array", "items": { "$ref": "#/$defs/grant" } },
+        "check": { "$ref": "#/$defs/check" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
