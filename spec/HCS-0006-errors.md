@@ -43,16 +43,22 @@ A host that composes plugins fails in a small number of ways that callers need t
 | `unsupported_hcs_version` | `hcsVersion` names a contract the host does not implement | HCS-0001 |
 | `duplicate_entry` | two catalog entries share an `id` | HCS-0001 |
 | `integrity_mismatch` | fetched content does not match `size` or `contentHash` | HCS-0001 |
-| `unsupported_contribution` | the host does not implement a contribution `kind` | HCS-0001 |
+| `unsupported_contribution` | the host does not implement a contribution `kind` or the entry's package `mediaType` | HCS-0001 |
 | `platform_incompatible` | no `compatibility.platforms` item matches the host platform | HCS-0001 |
 | `missing_dependency` | no entry or host built-in provides a required capability id | HCS-0003 |
-| `version_incompatible` | the capability id is provided, but not at the required contract major | HCS-0003 |
+| `version_incompatible` | the capability id is provided, but not at the required contract major; or `compatibility.hosts` does not list this host's id and version (no `capability` member then) | HCS-0003, HCS-0001 |
 | `ambiguous_provider` | more than one provider matches and nothing selects one | HCS-0003 |
 | `dependency_cycle` | activation order cannot be computed because requirements form a cycle | HCS-0003 |
-| `permission_denied` | an operation needs a permission the host has not granted | HCS-0005 |
+| `permission_denied` | an operation needs a permission the host has not granted, or a signed catalog is bound to an assignment the host does not have | HCS-0005, HCS-0007 |
 | `unsupported_capability` | a call targets a capability that is not active on this host | HCS-0004 |
 | `timeout` | a lifecycle step or call exceeded the host's deadline | HCS-0004 |
 | `plugin_failed` | plugin code failed during a lifecycle step or call | HCS-0004 |
+| `signature_invalid` | a signed catalog envelope or key set is unsigned, has a bad signature, does not meet its threshold, or has expired | HCS-0007 |
+| `rollback_rejected` | a signed catalog envelope or key set is older than the last accepted one, or reuses its sequence or version with different content | HCS-0007 |
+
+The table is the single registry of HCS error codes. A profile that needs a new code adds a row here naming itself in the last column; it does not keep a code list of its own ([ADR-0014](../docs/adr/0014-profile-error-codes-join-the-core-registry.md)). A host that does not implement that profile never raises its codes.
+
+A condition that no HCS document defines is not an HCS error. A host reports it outside the HCS error object, for example as an RFC 9457 problem type whose URI the distribution owns, and never as an `x-` value in `code`.
 
 ## 4. Transport mappings
 
@@ -75,3 +81,4 @@ The numeric `error.code` is whatever the carrying protocol prescribes for the si
 - OQ-0006-1: whether errors need a stable machine-readable `retryable` hint (`timeout` usually is, `integrity_mismatch` is not). No consumer needs it yet.
 - OQ-0006-2: whether one failure may carry several errors (a resolution pass usually finds several). The reference runner returns a list; the wire shape for a list is not defined.
 - OQ-0006-3: mapping to OpenTelemetry `error.type` (the GenAI conventions are Development status; see [docs/standards/opentelemetry-genai.md](../docs/standards/opentelemetry-genai.md)).
+- OQ-0006-4: a stable sub-reason for `signature_invalid` (unsigned, bad signature, threshold not met, expired) so operators can tell them apart without parsing `message`. The first host distinguishes them; HCS-0006 has no member for it yet.

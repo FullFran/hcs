@@ -33,7 +33,9 @@
         "permission_denied",
         "unsupported_capability",
         "timeout",
-        "plugin_failed"
+        "plugin_failed",
+        "signature_invalid",
+        "rollback_rejected"
       ]
     },
     "jsonrpcErrorResponse": {

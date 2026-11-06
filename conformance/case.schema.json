@@ -13,7 +13,7 @@
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^HCS-[0-9]{4}-R[0-9]{3}$" }
     },
-    "level": { "enum": ["document", "integrity", "resolution", "authority", "host"] },
+    "level": { "enum": ["document", "integrity", "resolution", "authority", "distribution", "host"] },
     "target": { "type": "string", "description": "Schema URI the input is validated against (document level)." },
     "input": true,
     "expect": {
@@ -34,6 +34,8 @@
           }
         },
         "activationOrder": { "type": "array", "items": { "type": "string" } },
+        "selected": { "type": "array", "items": { "type": "string" } },
+        "signingInput": { "type": "string", "description": "Expected HCS-0007 signature input as UTF-8 text (distribution level)." },
         "decision": { "$ref": "urn:hcs:schema:hcs-0005:authority:0.1#/$defs/decision" },
         "behaviour": { "type": "string", "description": "Expected host behaviour (host level)." }
       },
@@ -46,6 +48,7 @@
     { "if": { "properties": { "level": { "const": "integrity" } } }, "then": { "properties": { "expect": { "required": ["outcome"] } } } },
     { "if": { "properties": { "level": { "const": "resolution" } } }, "then": { "properties": { "expect": { "required": ["activationOrder", "errors"] } } } },
     { "if": { "properties": { "level": { "const": "authority" } } }, "then": { "properties": { "expect": { "required": ["decision"] } } } },
+    { "if": { "properties": { "level": { "const": "distribution" } } }, "then": { "properties": { "expect": { "anyOf": [{ "required": ["outcome"] }, { "required": ["signingInput"] }] } } } },
     { "if": { "properties": { "level": { "const": "host" } } }, "then": { "properties": { "expect": { "required": ["behaviour"] } } } }
   ]
 }

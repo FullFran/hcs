@@ -15,7 +15,7 @@ for (const f of walk(path.join(root, "conformance/cases"))) {
   const codes = (c.expect.errors || []).map(e => e.code);
   // schema-only verdict expected: invalid only when the expected error is manifest_invalid
   const expectSchemaValid = !codes.includes("manifest_invalid");
-  if (codes.includes("unsupported_hcs_version") || f.includes("type-code-mismatch")) { skipped++; continue; } // runner-only semantics
+  if (codes.includes("unsupported_hcs_version") || f.includes("type-code-mismatch") || f.includes("duplicate-keyid")) { skipped++; continue; } // runner-only semantics
   const ok = ajv.validate(c.target, c.input);
   if (ok === expectSchemaValid) agree++; else { disagree++; console.log("DISAGREE", f, JSON.stringify(ajv.errors).slice(0, 200)); }
 }

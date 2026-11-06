@@ -61,7 +61,7 @@ stateDiagram-v2
 
 **[HCS-0004-R007]** A host that abandons a lifecycle step because it exceeded the host's deadline MUST move the entry to `failed` with code `timeout`.
 
-R003 is the atomicity rule: from the caller's view a desired-set change either happens or does not. Which entries are "selected for activation" is the host's decision after resolution (HCS-0003 OQ-0003-3).
+R003 is the atomicity rule: from the caller's view a desired-set change either happens or does not. Which entries are "selected for activation" follows the host's declared activation policy (HCS-0003 section 3, step 6).
 
 ## 4. Telemetry
 
@@ -74,3 +74,4 @@ A host that emits telemetry for lifecycle transitions SHOULD use OpenTelemetry a
 - OQ-0004-3: lifecycle event names and whether they are CloudEvents types ([docs/standards/cloudevents.md](../docs/standards/cloudevents.md)).
 - OQ-0004-4: state persistence across host restarts.
 - OQ-0004-5: a `failed` entry's recovery path (retry versus a new desired set).
+- OQ-0004-6: out-of-band modification of a prepared or active entry's content (someone edited installed files). The first host detects it and stops reconciling until an operator intervenes; whether HCS defines the condition, its error code, and the host's duty, is open ([ADR-0014](../docs/adr/0014-profile-error-codes-join-the-core-registry.md)).
