@@ -59,4 +59,4 @@ with its JSON Schema and conformance fixtures.
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE). Copyright 2026 Francisco (FullFran).
+Apache License 2.0. See [LICENSE](LICENSE). Copyright 2026 FullFran.
