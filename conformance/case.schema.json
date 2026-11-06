@@ -34,6 +34,7 @@
           }
         },
         "activationOrder": { "type": "array", "items": { "type": "string" } },
+        "selected": { "type": "array", "items": { "type": "string" } },
         "decision": { "$ref": "urn:hcs:schema:hcs-0005:authority:0.1#/$defs/decision" },
         "behaviour": { "type": "string", "description": "Expected host behaviour (host level)." }
       },

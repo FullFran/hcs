@@ -163,7 +163,11 @@ def resolve(inp):
         ready = sorted((e for e in remaining if edges[e] <= done), key=lambda s: s.encode())
         nxt = ready[0]
         order.append(nxt); done.add(nxt); remaining.discard(nxt)
-    return {"activationOrder": order, "errors": errors}
+    result = {"activationOrder": order, "errors": errors}
+    policy = host.get("activationPolicy")
+    if policy is not None:
+        result["selected"] = [] if policy == "all-or-nothing" and errors else list(order)
+    return result
 
 
 def find_cycle_members(edges):
@@ -222,9 +226,9 @@ def run_case(case):
     if level == "resolution":
         got = resolve(inp)
         assert schema_valid(RESOLUTION + "#/$defs/resolutionResult",
-                            {"activationOrder": got["activationOrder"],
-                             "errors": [dict(e, message=e["code"]) for e in got["errors"]]})
-        ok = got["activationOrder"] == exp["activationOrder"] and norm(got["errors"]) == norm(exp["errors"])
+                            dict(got, errors=[dict(e, message=e["code"]) for e in got["errors"]]))
+        ok = got["activationOrder"] == exp["activationOrder"] and norm(got["errors"]) == norm(exp["errors"]) and (
+            "selected" not in exp or got.get("selected") == exp["selected"])
         return ("pass" if ok else "fail"), got
     if level == "authority":
         got = evaluate(inp)

@@ -61,7 +61,7 @@ stateDiagram-v2
 
 **[HCS-0004-R007]** A host that abandons a lifecycle step because it exceeded the host's deadline MUST move the entry to `failed` with code `timeout`.
 
-R003 is the atomicity rule: from the caller's view a desired-set change either happens or does not. Which entries are "selected for activation" is the host's decision after resolution (HCS-0003 OQ-0003-3).
+R003 is the atomicity rule: from the caller's view a desired-set change either happens or does not. Which entries are "selected for activation" follows the host's declared activation policy (HCS-0003 section 3, step 6).
 
 ## 4. Telemetry
 

@@ -226,6 +226,27 @@
       "source": "spec/HCS-0003-resolution.md"
     },
     {
+      "id": "HCS-0003-R008",
+      "document": "HCS-0003",
+      "keyword": "MUST",
+      "text": "A host MUST apply one declared activation policy, `all-or-nothing` or `partial`, to every desired-set transition.",
+      "source": "spec/HCS-0003-resolution.md"
+    },
+    {
+      "id": "HCS-0003-R009",
+      "document": "HCS-0003",
+      "keyword": "MUST NOT",
+      "text": "A host whose activation policy is `all-or-nothing` MUST NOT select any entry of a new desired set when resolution reported an error for that set, and MUST keep the previous desired set active.",
+      "source": "spec/HCS-0003-resolution.md"
+    },
+    {
+      "id": "HCS-0003-R010",
+      "document": "HCS-0003",
+      "keyword": "MUST",
+      "text": "A host whose activation policy is `partial` MUST select exactly the entries in the activation order.",
+      "source": "spec/HCS-0003-resolution.md"
+    },
+    {
       "id": "HCS-0004-R001",
       "document": "HCS-0004",
       "keyword": "MUST NOT",
