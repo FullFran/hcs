@@ -47,6 +47,16 @@ docs/adr/
 needs today (id, version, contributions, content hash and size, compatibility),
 with its JSON Schema and conformance fixtures.
 
+## Current state
+
+- `docs/standards/`: pinned notes on every external standard HCS touches.
+- `spec/`: Draft HCS-0000 (conventions), HCS-0001 (catalog manifest),
+  HCS-0002 (capability ids), HCS-0003 (resolution), HCS-0004 (lifecycle),
+  HCS-0005 (authority), HCS-0006 (typed errors). Each lists its open questions.
+- `schemas/`, `conformance/`, `requirements/`: schemas, cases and the
+  reference runner ([conformance/README.md](conformance/README.md)).
+- `docs/adr/`: design decisions behind the drafts.
+
 ## License
 
 Not chosen yet (Apache-2.0 is the candidate). All rights reserved until then.
