@@ -13,7 +13,7 @@
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^HCS-[0-9]{4}-R[0-9]{3}$" }
     },
-    "level": { "enum": ["document", "integrity", "resolution", "authority", "distribution", "host"] },
+    "level": { "enum": ["document", "integrity", "resolution", "authority", "distribution", "projection", "host"] },
     "target": { "type": "string", "description": "Schema URI the input is validated against (document level)." },
     "input": true,
     "expect": {
@@ -49,6 +49,7 @@
     { "if": { "properties": { "level": { "const": "resolution" } } }, "then": { "properties": { "expect": { "required": ["activationOrder", "errors"] } } } },
     { "if": { "properties": { "level": { "const": "authority" } } }, "then": { "properties": { "expect": { "required": ["decision"] } } } },
     { "if": { "properties": { "level": { "const": "distribution" } } }, "then": { "properties": { "expect": { "anyOf": [{ "required": ["outcome"] }, { "required": ["signingInput"] }] } } } },
+    { "if": { "properties": { "level": { "const": "projection" } } }, "then": { "properties": { "expect": { "required": ["errors", "selected"] } } } },
     { "if": { "properties": { "level": { "const": "host" } } }, "then": { "properties": { "expect": { "required": ["behaviour"] } } } }
   ]
 }

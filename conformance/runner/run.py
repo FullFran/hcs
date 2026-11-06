@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""HCS reference conformance runner (document, integrity, resolution, authority and distribution levels).
+"""HCS reference conformance runner (document, integrity, resolution, authority, distribution and projection levels).
 
 Usage:
   python3 conformance/runner/run.py [--report PATH] [--selftest] [-v]
 
 It validates every case in conformance/cases against conformance/case.schema.json, executes
-document/integrity/resolution/authority/distribution cases with the reference semantics below
-(distribution: HCS-0007, implemented in distro1.py), reports host
+document/integrity/resolution/authority/distribution/projection cases with the reference semantics below
+(distribution: HCS-0007, implemented in distro1.py; projection: HCS-0008, in projection.py), reports host
 cases as pending, and enforces HCS-0000-R001/R002 (case coverage) against
 requirements/requirements.json. Exit code 0 only when every executed case passes and coverage holds.
 
@@ -26,6 +26,7 @@ from referencing.jsonschema import DRAFT202012
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import distro1  # noqa: E402
+import projection  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SUPPORTED_HCS = {"0.1"}
@@ -286,6 +287,10 @@ def run_case(case):
         ok = got["allow"] == exp["decision"]["allow"] and (
             got["allow"] or got["error"]["code"] == exp["decision"]["error"]["code"])
         return ("pass" if ok else "fail"), got
+    if level == "projection":
+        got = projection.project(inp)
+        ok = norm(got["errors"]) == norm(exp["errors"]) and got["selected"] == exp["selected"]
+        return ("pass" if ok else "fail"), got
     raise ValueError(level)
 
 
@@ -318,6 +323,7 @@ def main(argv):
     if "--selftest" in argv:
         selftest()
         distro1.selftest()
+        projection.selftest()
     verbose = "-v" in argv
     requirements = json.loads((ROOT / "requirements" / "requirements.json").read_text())["requirements"]
     case_validator = validator_for(CASE)

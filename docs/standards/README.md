@@ -10,9 +10,10 @@ Template per file: header table (owner, version pinned, source pinned, access da
 | Area | Files | Bound normatively by HCS 0.1 drafts |
 | --- | --- | --- |
 | Spec language and contracts | [bcp14](bcp14.md), [json-schema-2020-12](json-schema-2020-12.md), [json-rpc-2](json-rpc-2.md), [rfc9457-problem-details](rfc9457-problem-details.md), [semver](semver.md), [openfeature](openfeature.md) (process model only) | BCP 14, JSON Schema 2020-12, JSON-RPC 2.0 and RFC 9457 (HCS-0006 mappings) |
-| Agent protocols and contributions | [mcp](mcp.md), [acp](acp.md), [a2a](a2a.md), [open-responses](open-responses.md), [agent-skills](agent-skills.md), [agents-md](agents-md.md) | Agent Skills (HCS-0001 kind `skill`); MCP by name only (kind `mcp-server`, details in TOOLS-1) |
+| Agent protocols and contributions | [mcp](mcp.md), [mcp-registry-server-json](mcp-registry-server-json.md), [mcpb](mcpb.md), [acp](acp.md), [a2a](a2a.md), [open-responses](open-responses.md), [agent-skills](agent-skills.md), [agents-md](agents-md.md) | Agent Skills (HCS-0001 kind `skill`, HCS-0008); MCP Registry `server.json` 2025-12-11 as the `mcp-server` descriptor (HCS-0008, profiled); AGENTS.md as SHOULD for instruction content (HCS-0008) |
 | Telemetry and events | [opentelemetry-genai](opentelemetry-genai.md), [cloudevents](cloudevents.md) | none (SHOULD only, HCS-0004) |
 | Supply chain and distribution | [oci](oci.md), [tuf](tuf.md), [in-toto](in-toto.md), [slsa](slsa.md), [sigstore](sigstore.md), [spdx](spdx.md), [uptane](uptane.md) | OCI digest grammar and platform object (HCS-0001); the rest is DISTRO-1 |
+| Host activation and health | [uapi-config-files](uapi-config-files.md), [uapi-boot-counting](uapi-boot-counting.md), [kubernetes-probes](kubernetes-probes.md), [grpc-health](grpc-health.md) | none (models referenced by HCS-0008: precedence, confirm after health) |
 | Execution and isolation | [wasi-component-model](wasi-component-model.md), [opensandbox](opensandbox.md) | none (ISOLATION-1) |
 | Identity and policy | [oauth2](oauth2.md), [openid-connect](openid-connect.md), [jwt](jwt.md), [spiffe](spiffe.md), [opa](opa.md) | none (HCS-0005 cites OPA and OAuth as non-goals) |
 | Implementations, not standards | [implementations-out-of-scope](implementations-out-of-scope.md) (agentgateway, Agent Router, Goose, OpenEnv, Google Omaha) | none |
@@ -31,3 +32,4 @@ Template per file: header table (owner, version pinned, source pinned, access da
 10. OpenTelemetry GenAI's MCP conventions (at the pinned commit) still describe MCP 2025-11-25 (`initialize`, `mcp.session.id`) ([opentelemetry-genai](opentelemetry-genai.md)).
 11. The CloudEvents tag `ce@v1.0.2` was moved to a 2025 commit; pin by SHA ([cloudevents](cloudevents.md)).
 12. Agent Skills `skills-ref` rejects frontmatter keys outside its six fields, so HCS metadata cannot live in `SKILL.md` ([agent-skills](agent-skills.md)).
+13. Agent Skills and MCP are AAIF projects: verified on https://aaif.io/projects (2026-11-06), closing the [U] marks in [agent-skills](agent-skills.md) and [mcp](mcp.md).

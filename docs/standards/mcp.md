@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Owner | Model Context Protocol a Series of LF Projects, LLC (per `GOVERNANCE.md`); AAIF project per the catalog [U: AAIF membership not re-checked in this pass] |
+| Owner | Model Context Protocol a Series of LF Projects, LLC (per `GOVERNANCE.md`); AAIF project [F] (https://aaif.io/projects, read 2026-11-06) |
 | Version pinned | revision `2026-07-28` (`LATEST_PROTOCOL_VERSION` in `schema/2026-07-28/schema.ts`) |
 | Source pinned | `modelcontextprotocol/modelcontextprotocol@2026-07-28` (tag, commit `5f5440bb26a62e2cf3440b92da5a667efa03b267`); docs read at `main@3c4d91b7e832d9b74338d56eed03403ccc662123` |
 | Access date | 2026-11-06 |

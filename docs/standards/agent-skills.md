@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Owner | Agent Skills project (governance adopted 2026-11-04; to be established as "Agent Skills a Series of LF Projects, LLC"); originally contributed by Anthropic; AAIF project per the catalog [U: AAIF membership not re-checked] |
+| Owner | Agent Skills project (governance adopted 2026-11-04; to be established as "Agent Skills a Series of LF Projects, LLC"); originally contributed by Anthropic; AAIF project [F] (https://aaif.io/projects, read 2026-11-06) |
 | Version pinned | unversioned specification; pinned by commit (last change to `docs/specification.mdx`: `217be548739f21d6008915c29aefe320ea1a90af`, 2026-08-04) |
 | Source pinned | `agentskills/agentskills@83021e2be457a9b6679148719c1f6074f0ad975e` (`main`, 2026-11-04; no tags or releases); rendered at https://agentskills.io/specification |
 | Access date | 2026-11-06 |

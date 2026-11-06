@@ -504,6 +504,132 @@
       "keyword": "SHOULD",
       "text": "A host that reports observed state to its distribution SHOULD send each report as a CloudEvents 1.0.2 event whose `data` is an HCS-0004 status document, and SHOULD carry errors over HTTP as RFC 9457 problem details as HCS-0006 section 4.2 defines.",
       "source": "spec/HCS-0007-signed-catalog.md"
+    },
+    {
+      "id": "HCS-0008-R001",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "A host MUST derive each engine run's projection from exactly one generation and MUST make the projection reference that generation by an identifier that does not change during the run, never by a pointer the host moves to the next generation.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R002",
+      "document": "HCS-0008",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT change what a running engine reads through its projection; it MUST move an engine to another generation only by starting a new engine run from a new projection.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R003",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "An adapter MUST, for every contribution of every entry in the generation, either project it into the engine run or report an HCS-0006 error with the entry's id; it MUST NOT leave a contribution out silently.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R004",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "An adapter MUST report `unsupported_contribution` for an entry that has a contribution whose kind it cannot project into its engine.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R005",
+      "document": "HCS-0008",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT report an entry as `active` unless every contribution of that entry was projected into the engine run.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R017",
+      "document": "HCS-0008",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT fail or roll back a move to a new generation only because an adapter reported `unsupported_contribution`; it MUST treat the reported entry as not selected for activation on that engine and MUST keep it reported until a generation or an engine change lets the adapter project it.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R006",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "When two contributions of one generation would project the same engine-level name, an adapter MUST project neither and MUST report `ambiguous_provider` for each entry involved.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R007",
+      "document": "HCS-0008",
+      "keyword": "MUST NOT",
+      "text": "An adapter MUST NOT produce a projection in which a generation contribution replaces, removes or widens a host-owned setting, and MUST report `permission_denied` for that entry.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R008",
+      "document": "HCS-0008",
+      "keyword": "MUST NOT",
+      "text": "An adapter MUST NOT modify the files of a `skill` contribution's directory when it projects the skill.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R009",
+      "document": "HCS-0008",
+      "keyword": "SHOULD",
+      "text": "An adapter SHOULD project a skill under its Agent Skills `name`, without a prefix or namespace added by the engine.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R010",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "An adapter MUST read an `mcp-server` contribution's `path` as an MCP Registry `server.json` document of schema revision 2025-12-11, and MUST report `manifest_invalid` for an entry whose document does not validate against that schema.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R011",
+      "document": "HCS-0008",
+      "keyword": "MUST NOT",
+      "text": "A `server.json` document in a generation MUST NOT give a `value` or a `default` to an input whose `isSecret` is true; an adapter MUST report `manifest_invalid` for an entry that has one.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R012",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "An adapter MUST take the value of a secret input only from the secrets the host grants to that entry, MUST NOT write it inside the generation, and MUST report `permission_denied` for an entry with a required secret input that has no granted value.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R013",
+      "document": "HCS-0008",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT confirm a generation until an engine run started from its projection has passed the host's health check within the host's deadline.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R014",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "A host whose engine reports which skills or MCP servers it loaded MUST fail the health check when a projected skill or MCP server is missing from that report.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R015",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "When the health check of a new generation fails or its deadline passes, a host MUST report the generation as failed with `plugin_failed` or `timeout`, MUST start an engine run from the confirmed generation, and MUST NOT start the failed generation again automatically.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R016",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "When the engine run started from the confirmed generation after a failure also fails its health check, a host MUST stop and report it, and MUST NOT start a further rollback or retry until a new desired set or an operator action arrives.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R018",
+      "document": "HCS-0008",
+      "keyword": "SHOULD",
+      "text": "A host that reports the health of an engine run SHOULD report one of the states `healthy`, `unhealthy` or `unknown`, and SHOULD report the failure itself with the codes of R015.",
+      "source": "spec/HCS-0008-host-adapter.md"
     }
   ]
 }

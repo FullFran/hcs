@@ -18,6 +18,8 @@ python3 tools/extract_requirements.py --check
 python3 conformance/runner/run.py --selftest
 ```
 
+`requirements/requirements.json` is generated: regenerate it in the same commit as any change to `spec/` (the `--check` run fails on drift); never edit it by hand ([ADR-0022](docs/adr/0022-host-adapter-open-questions-decided.md)).
+
 Distribution-specific behaviour goes under an `x-<distribution>` extension, never in core text (rule 4).
 
 ## Licence and provenance

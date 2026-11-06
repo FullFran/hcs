@@ -138,9 +138,13 @@ An envelope equal in content to the last accepted one is accepted again; fetchin
 
 **[HCS-0007-R016]** A host that claims DISTRO-1 MUST use the `all-or-nothing` activation policy of HCS-0003.
 
+R016 governs the signed catalog and its resolution. An entry that an engine cannot take after resolution is reported and left inactive on that engine without failing the transition (HCS-0008-R017).
+
 **[HCS-0007-R017]** A host MUST NOT modify the unpacked content of an active entry while moving to a new desired set; it MUST prepare the new set separately and switch to it as one step (HCS-0004-R003).
 
 **[HCS-0007-R018]** A host that runs a health check after starting a new desired set MUST treat a failed check as a failed transition under HCS-0004-R003 and return to the previous set.
+
+HCS-0008 section 7 refines R018 for hosts that start an agent engine: when a generation counts as confirmed, the one-rollback limit, and the error codes.
 
 ### 5.5 Deployment
 

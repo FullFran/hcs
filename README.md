@@ -53,9 +53,12 @@ with its JSON Schema and conformance fixtures.
 - `spec/`: Draft HCS-0000 (conventions), HCS-0001 (catalog manifest),
   HCS-0002 (capability ids), HCS-0003 (resolution), HCS-0004 (lifecycle),
   HCS-0005 (authority), HCS-0006 (typed errors), HCS-0007 (signed catalog
-  distribution, the DISTRO-1 profile). Each lists its open questions.
+  distribution, the DISTRO-1 profile), HCS-0008 (host adapter: projecting a
+  generation into an agent engine; Provisional). Each lists its open questions.
 - `docs/research/lf-fit-distro-1-and-core-0.md`: how the DISTRO-1 and CORE-0
   changes fare against Linux Foundation practice.
+- `docs/research/host-adapter-standards.md` and `lf-fit-host-adapter.md`: the
+  standards behind HCS-0008 and its Linux Foundation fit.
 - [CONTRIBUTING.md](CONTRIBUTING.md): how a requirement enters HCS, DCO.
 - `schemas/`, `conformance/`, `requirements/`: schemas, cases, the
   reference runner and the CORE-0 and DISTRO-1 profiles
