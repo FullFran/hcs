@@ -142,6 +142,8 @@ An envelope equal in content to the last accepted one is accepted again; fetchin
 
 **[HCS-0007-R018]** A host that runs a health check after starting a new desired set MUST treat a failed check as a failed transition under HCS-0004-R003 and return to the previous set.
 
+HCS-0008 section 7 refines R018 for hosts that start an agent engine: when a generation counts as confirmed, the one-rollback limit, and the error codes.
+
 ### 5.5 Deployment
 
 **[HCS-0007-R019]** A distribution SHOULD keep root private keys offline and SHOULD NOT hold any private key on the endpoint that serves envelopes and key sets, so that compromising that endpoint cannot produce an acceptable envelope.

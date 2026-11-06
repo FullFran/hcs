@@ -34,6 +34,8 @@ R001 and R002 are process requirements on this repository, not on hosts. `python
 
 Each document carries a `Status` of `Draft`, `Candidate`, `Released` or `Deprecated`. A Released version is immutable; changes produce a new version of the same document number with a changelog entry. All documents are Draft until HCS 0.1 is released.
 
+A document that defines something no existing standard covers carries, besides its `Status`, the fields `Provisional: yes` and `Superseded when`, which names the standard or event that would replace it. A Provisional document is a placeholder, not a claim that HCS owns the topic: when the named replacement exists, the document profiles it or is withdrawn (README rule 6).
+
 ## 5. Versioning
 
 - The HCS specification is released as SemVer `0.MINOR.PATCH` until two independent hosts pass the same profile (README rule 3).
@@ -61,7 +63,7 @@ R003 cases check that unknown extension members are accepted and that names outs
 
 ## 8. Conformance cases
 
-Cases live in `conformance/cases/<document>/<requirement-id>/{valid,invalid}/<name>.json` and validate against `conformance/case.schema.json`. The directory gives the polarity: `valid/` exercises the path where the requirement is satisfied, `invalid/` the path where it is violated or where a non-conforming implementation would produce a different result ([ADR-0001](../docs/adr/0001-requirement-ids-and-case-polarity.md)). A case names the `requirements` it exercises, its `level` (`document`, `integrity`, `resolution`, `authority` or `host`) and its expected outcome. `document`, `integrity`, `resolution` and `authority` cases are executed by the reference runner ([ADR-0008](../docs/adr/0008-reference-runner.md)); `host` cases describe a scenario that needs a host adapter and are reported as `pending` until one exists.
+Cases live in `conformance/cases/<document>/<requirement-id>/{valid,invalid}/<name>.json` and validate against `conformance/case.schema.json`. The directory gives the polarity: `valid/` exercises the path where the requirement is satisfied, `invalid/` the path where it is violated or where a non-conforming implementation would produce a different result ([ADR-0001](../docs/adr/0001-requirement-ids-and-case-polarity.md)). A case names the `requirements` it exercises, its `level` (`document`, `integrity`, `resolution`, `authority`, `distribution`, `projection` or `host`) and its expected outcome. All levels except `host` are executed by the reference runner ([ADR-0008](../docs/adr/0008-reference-runner.md)); `host` cases describe a scenario that needs a running host and engine and are reported as `pending` until a host adapter (HCS-0008) runs them.
 
 ## 9. Open questions
 

@@ -39,20 +39,20 @@ A host that composes plugins fails in a small number of ways that callers need t
 
 | Code | Raised when | Defined by |
 | --- | --- | --- |
-| `manifest_invalid` | a document fails its HCS schema | HCS-0001 |
+| `manifest_invalid` | a document fails its HCS schema, or an MCP `server.json` in a generation fails its schema or carries a secret value | HCS-0001, HCS-0008 |
 | `unsupported_hcs_version` | `hcsVersion` names a contract the host does not implement | HCS-0001 |
 | `duplicate_entry` | two catalog entries share an `id` | HCS-0001 |
 | `integrity_mismatch` | fetched content does not match `size` or `contentHash` | HCS-0001 |
-| `unsupported_contribution` | the host does not implement a contribution `kind` or the entry's package `mediaType` | HCS-0001 |
+| `unsupported_contribution` | the host does not implement a contribution `kind` or the entry's package `mediaType`, or its host adapter cannot project that kind into the engine | HCS-0001, HCS-0008 |
 | `platform_incompatible` | no `compatibility.platforms` item matches the host platform | HCS-0001 |
 | `missing_dependency` | no entry or host built-in provides a required capability id | HCS-0003 |
 | `version_incompatible` | the capability id is provided, but not at the required contract major; or `compatibility.hosts` does not list this host's id and version (no `capability` member then) | HCS-0003, HCS-0001 |
-| `ambiguous_provider` | more than one provider matches and nothing selects one | HCS-0003 |
+| `ambiguous_provider` | more than one provider matches and nothing selects one, or two contributions of one generation would project the same engine-level name | HCS-0003, HCS-0008 |
 | `dependency_cycle` | activation order cannot be computed because requirements form a cycle | HCS-0003 |
-| `permission_denied` | an operation needs a permission the host has not granted, or a signed catalog is bound to an assignment the host does not have | HCS-0005, HCS-0007 |
+| `permission_denied` | an operation needs a permission the host has not granted, or a signed catalog is bound to an assignment the host does not have, or a contribution would replace, remove or widen a host-owned setting or needs a secret the host has not granted to its entry | HCS-0005, HCS-0007, HCS-0008 |
 | `unsupported_capability` | a call targets a capability that is not active on this host | HCS-0004 |
-| `timeout` | a lifecycle step or call exceeded the host's deadline | HCS-0004 |
-| `plugin_failed` | plugin code failed during a lifecycle step or call | HCS-0004 |
+| `timeout` | a lifecycle step or call exceeded the host's deadline, including the health check of a new generation | HCS-0004, HCS-0008 |
+| `plugin_failed` | plugin code failed during a lifecycle step or call, or an engine run started from a new generation failed the host's health check | HCS-0004, HCS-0008 |
 | `signature_invalid` | a signed catalog envelope or key set is unsigned, has a bad signature, does not meet its threshold, or has expired | HCS-0007 |
 | `rollback_rejected` | a signed catalog envelope or key set is older than the last accepted one, or reuses its sequence or version with different content | HCS-0007 |
 
