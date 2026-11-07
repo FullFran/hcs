@@ -10,9 +10,11 @@
       "mcp-server"
     ],
     "hostOwned": [],
-    "hostRuntimes": [
-      "node"
-    ],
+    "hostRuntimes": {
+      "node": [
+        "NODE_OPTIONS"
+      ]
+    },
     "grantedSecrets": {},
     "activationPolicy": "partial",
     "generation": {

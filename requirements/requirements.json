@@ -684,7 +684,7 @@
       "id": "HCS-0008-R021",
       "document": "HCS-0008",
       "keyword": "MUST",
-      "text": "A `server.json` package whose `registryType` is `file` MUST have a `stdio` transport and an `identifier` that is a relative path as HCS-0001-R005 defines for contribution paths, with no empty segments, naming a regular file inside the directory of the `mcp-server` contribution; a document MUST NOT have more than one such package. An adapter MUST report `manifest_invalid` for an entry that breaks this, including when the file, after resolving links, lies outside that directory.",
+      "text": "A `server.json` package whose `registryType` is `file` MUST have a `stdio` transport and an `identifier` that is a relative path as HCS-0001-R005 defines for contribution paths, with no empty segments, that names, after removing `.` segments, a regular file inside the directory of the `mcp-server` contribution; a document MUST NOT have more than one such package. An adapter MUST report `manifest_invalid` for an entry that breaks this, including when the file, after resolving links, lies outside that directory.",
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
@@ -698,14 +698,14 @@
       "id": "HCS-0008-R023",
       "document": "HCS-0008",
       "keyword": "MUST",
-      "text": "An adapter MUST start a `file` server with a runtime the host provides for its `runtimeHint`, and MUST report `unsupported_contribution` for an entry whose `runtimeHint` names no runtime the host provides or whose package has `runtimeArguments`.",
+      "text": "An adapter MUST start a `file` server with a runtime the host provides for its `runtimeHint`, and MUST report `unsupported_contribution` for an entry whose `runtimeHint` names no runtime the host provides, whose package has a non-empty `runtimeArguments`, or whose package sets an environment variable that the host declares as a control setting of that runtime or of the loader (for example `NODE_OPTIONS`, `PYTHONPATH`, `LD_PRELOAD`).",
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
       "id": "HCS-0008-R024",
       "document": "HCS-0008",
       "keyword": "MUST",
-      "text": "An adapter MUST pass the secrets granted to a `file` server only through its environment, never as command-line arguments, and MUST report `unsupported_contribution` for an entry whose package declares a secret argument.",
+      "text": "An adapter MUST pass the secrets granted to a `file` server only through its environment, never as command-line arguments, and MUST report `unsupported_contribution` for an entry whose package declares a secret argument, including an argument with a secret input among its `variables`.",
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {

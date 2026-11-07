@@ -10,10 +10,15 @@
       "mcp-server"
     ],
     "hostOwned": [],
-    "hostRuntimes": [
-      "node",
-      "python"
-    ],
+    "hostRuntimes": {
+      "node": [
+        "NODE_OPTIONS"
+      ],
+      "python": [
+        "PYTHONPATH",
+        "PYTHONSTARTUP"
+      ]
+    },
     "grantedSecrets": {},
     "activationPolicy": "partial",
     "generation": {
