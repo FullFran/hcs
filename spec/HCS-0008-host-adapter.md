@@ -109,6 +109,21 @@ The skill directory is Agent Skills as is: the adapter places it, or a link to i
 
 Inputs are environment variables, headers, arguments and URL variables (`KeyValueInput` and `Input` in the schema). The engine-level name of an MCP server is the adapter's choice (appendix A); it is subject to R006 and R007 like any other name. Where the engine can resolve a reference at start (for example an environment placeholder), the adapter SHOULD write the reference rather than the value, so that the projection holds no secret either.
 
+#### 6.4.1 Server code inside the generation (`registryType: "file"`)
+
+A package can ship the code of a local MCP server, not only its descriptor: a script the engine starts over stdio. MCP Registry `server.json` describes packages that a client downloads from a registry (`npm`, `pypi`, `oci`, `nuget`, `mcpb`); its `registryType` is an open string, and no value names code that is already on disk. HCS profiles the value `file` for that case ([ADR-0026](../docs/adr/0026-mcp-server-code-in-the-generation.md)). The code is covered by the entry's `contentHash` in the signed catalog (HCS-0001-R007, HCS-0007), so `fileSha256` is not used.
+
+**[HCS-0008-R021]** A `server.json` package whose `registryType` is `file` MUST have a `stdio` transport and an `identifier` that is a relative path as HCS-0001-R005 defines for contribution paths, with no empty segments, naming a regular file inside the directory of the `mcp-server` contribution; a document MUST NOT have more than one such package. An adapter MUST report `manifest_invalid` for an entry that breaks this, including when the file, after resolving links, lies outside that directory.
+
+**[HCS-0008-R022]** An adapter MUST start a `file` server from the file inside the generation, by a path that does not change during the run (R001), with the contribution's directory as working directory, and MUST NOT copy, move or modify the server's files to do so.
+
+**[HCS-0008-R023]** An adapter MUST start a `file` server with a runtime the host provides for its `runtimeHint`, and MUST report `unsupported_contribution` for an entry whose `runtimeHint` names no runtime the host provides or whose package has `runtimeArguments`.
+
+**[HCS-0008-R024]** An adapter MUST pass the secrets granted to a `file` server only through its environment, never as command-line arguments, and MUST report `unsupported_contribution` for an entry whose package declares a secret argument.
+
+The host owns the runtime and its flags (R023): runtime arguments in a signed descriptor would let a publisher change how the host's own runtime behaves. Arguments are visible to other local processes, environment values are not (R024). A runtime that is present but fails to start the server is a health failure (R014, R015), not a projection error. Values given to the server also follow issue #45 (literal delivery).
+
+
 ### 6.5 Instructions, policies and other extension kinds
 
 HCS-0001 defines two core kinds, `skill` and `mcp-server`. Instruction files, agent definitions, commands and policies are extension kinds of the distribution (`x-<distribution>-...`) until a second harness needs them in core (README rule 1, [ADR-0018](../docs/adr/0018-instructions-and-policies-stay-extension-kinds.md)). R003 to R007 apply to them unchanged: the adapter projects them or reports them, and they never override a host-owned setting. A distribution that ships instruction contributions SHOULD use plain Markdown in the AGENTS.md convention and define no structure inside the file. A policy contribution is a narrowing (section 6.2): it can only make a host-owned permission stricter.
@@ -141,7 +156,7 @@ This is UAPI.1 boot counting with one try ([uapi-boot-counting.md](../docs/stand
 
 ## 8. Conformance
 
-`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008, R013 to R016, R019 and R020 need a running engine and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009 and R018 are SHOULDs and have no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's.
+`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008, R013 to R016, R019, R020 and R022 need a running engine and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009 and R018 are SHOULDs and have no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's.
 
 ## 9. Open questions
 
@@ -149,6 +164,7 @@ Closed by [ADR-0022](../docs/adr/0022-host-adapter-open-questions-decided.md) (2
 
 - OQ-0008-2: a shared vocabulary for host-owned settings (permission policy, safety proxy, reserved names), so two hosts can declare them the same way (HCS-0005 OQ-0005-1).
 - OQ-0008-3: whether projection outcomes need their own status document, or HCS-0004 status with HCS-0006 errors is enough. The first host needs only the latter.
+- OQ-0008-7: whether an adapter may project a `server.json` package of a registry type other than `file`, which makes the engine fetch code that the signed catalog does not cover. The first host refuses them; the current requirements allow them.
 
 ## Appendix A. Engine mappings (non-normative)
 

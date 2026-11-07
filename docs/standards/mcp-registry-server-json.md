@@ -30,6 +30,7 @@ A static JSON description of one MCP server: who it is, which versions exist, an
 
 - HCS-0008: the content of an `mcp-server` contribution is a `server.json` document of a pinned schema revision. HCS restates none of its members.
 - HCS-0008 profiles it in one point: an input with `isSecret: true` carries no `value` and no `default` inside a generation; the host supplies secrets. The schema allows a literal secret value; a distributed, signed and cached generation must not contain one.
+- HCS-0008 6.4.1 profiles a second point: `registryType: "file"` names server code already inside the generation (`identifier` is a path in the contribution folder, `stdio` only, host-provided runtime, secrets through the environment). `registryType` is an open string in the 2025-12-11 schema and no listed value covers this; HCS proposes it upstream ([ADR-0026](../adr/0026-mcp-server-code-in-the-generation.md)).
 - HCS-0005: `isRequired` and `isSecret` describe what the server needs; they are requests, never grants.
 
 ## Pitfalls for HCS

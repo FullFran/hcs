@@ -5,11 +5,13 @@ Input (case `input`):
                     entries in activation order.
   contribution:     {"kind": str, ...}
                     skill:       "name" (the Agent Skills name read from SKILL.md)
-                    mcp-server:  "descriptor" (the server.json document at `path`)
+                    mcp-server:  "descriptor" (the server.json document at `path`); for a `file` package,
+                                 "files": regular files in the contribution's directory, relative to it
                     other kinds: "settings": [{"name": str, "effect": "add"|"replace"|"remove"|"widen"|"narrow"}]
   projectableKinds: kinds the adapter can project into its engine.
   hostOwned:        engine-level names of host-owned settings.
   grantedSecrets:   {entry id: [input name, ...]} secrets the host grants per entry.
+  hostRuntimes:     runtimeHint values the host provides a runtime for (HCS-0008-R023).
   activationPolicy: "all-or-nothing" | "partial" (HCS-0003 step 6).
 
 Output: {"errors": [HCS-0006 errors with entry], "selected": [entry ids the host may report active]}.
@@ -22,7 +24,11 @@ The server.json check covers the members the schema requires and the HCS-0008-R0
 full validation against the MCP Registry schema is the adapter's job (HCS-0008 section 8).
 """
 
+import re
+
 SERVER_REQUIRED = ("name", "description", "version")
+# HCS-0001-R005 relative path (no leading '/', no backslash, no '..' segment) plus no empty segment (R021)
+RELATIVE_PATH = re.compile(r"^(?!/)(?!.*\\)(?!(.*/)?\.\.(/|$))(?!.*//)(?!.*/$)[^\x00]+$")
 OVERRIDING = {"add", "replace"}
 FORBIDDEN_ON_HOST_OWNED = {"add", "replace", "remove", "widen"}
 
@@ -57,10 +63,31 @@ def _check_descriptor(entry, descriptor, granted):
     return [], descriptor["name"]
 
 
+def _check_file_package(entry, descriptor, files, runtimes):
+    """HCS-0008-R021 (shape, manifest_invalid), then R024 and R023 (unsupported_contribution).
+    Returns (code or None). Links that resolve outside the folder are a host-level case."""
+    packages = [p for p in descriptor.get("packages") or [] if p.get("registryType") == "file"]
+    if not packages:
+        return None
+    if len(packages) > 1:
+        return "manifest_invalid"
+    pkg = packages[0]
+    ident = pkg.get("identifier")
+    if (pkg.get("transport") or {}).get("type") != "stdio" or not isinstance(ident, str) \
+            or not RELATIVE_PATH.match(ident) or ident not in files:
+        return "manifest_invalid"
+    if any(a.get("isSecret") for key in ("packageArguments", "runtimeArguments") for a in pkg.get(key) or []):
+        return "unsupported_contribution"                   # R024: secrets only through the environment
+    if pkg.get("runtimeArguments") or pkg.get("runtimeHint") not in runtimes:
+        return "unsupported_contribution"                   # R023: the host owns the runtime and its flags
+    return None
+
+
 def project(inp):
     projectable = set(inp.get("projectableKinds", []))
     host_owned = set(inp.get("hostOwned", []))
     grants = inp.get("grantedSecrets", {})
+    runtimes = set(inp.get("hostRuntimes", []))
     entries = inp["generation"]["entries"]
     errors, failed, unprojected, claims = [], set(), set(), {}
 
@@ -88,6 +115,13 @@ def project(inp):
                 if errs:
                     for e in errs:
                         fail(e["code"], eid)
+                    continue
+                code = _check_file_package(eid, c["descriptor"], set(c.get("files", [])), runtimes)
+                if code == "manifest_invalid":
+                    fail(code, eid)
+                    continue
+                if code == "unsupported_contribution":
+                    report_unsupported(eid)
                     continue
                 settings = [{"name": "mcp/" + name, "effect": "add"}]
             else:
