@@ -85,7 +85,7 @@ profiles, reference runner), `requirements/requirements.json`, `LICENSE`,
 2. **Vendor and verify.**
 
    ```sh
-   V=0.1.0-draft.1
+   V=0.1.0-draft.2
    EXPECTED=<tarball sha256 from the release notes>
    curl -fsSLO "https://github.com/FullFran/hcs/releases/download/v$V/hcs-$V.tar.gz"
    echo "$EXPECTED  hcs-$V.tar.gz" | sha256sum -c -
