@@ -39,6 +39,7 @@ A document that defines something no existing standard covers carries, besides i
 ## 5. Versioning
 
 - The HCS specification is released as SemVer `0.MINOR.PATCH` until two independent hosts pass the same profile (README rule 3).
+- Before `0.1.0`, snapshots are published as SemVer pre-releases `0.1.0-draft.N`. A pre-release carries Draft documents, is immutable once tagged, and may change any document incompatibly from the previous `N`.
 - Instance documents declare the HCS contract they follow in `hcsVersion` as `MAJOR.MINOR` (for example `"0.1"`). A patch release never changes a schema's accepted language.
 - Package versions inside manifests are opaque strings unless an HCS document defines their semantics ([ADR-0004](../docs/adr/0004-opaque-package-versions.md)).
 
