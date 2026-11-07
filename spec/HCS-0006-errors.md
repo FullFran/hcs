@@ -76,6 +76,14 @@ The numeric `error.code` is whatever the carrying protocol prescribes for the si
 
 `title` SHOULD be the code; `detail` SHOULD be the `message`; `status` is chosen by the HTTP surface. See [docs/standards/rfc9457-problem-details.md](../docs/standards/rfc9457-problem-details.md).
 
+### 4.3 Clients
+
+A client that reads the wrong member gets the wrong answer and can still pass its own tests: the first host's server put the HCS error in an extension member, its client read a top-level `reason`, and the client's unit test passed because it used a hand-written fake with the same wrong shape. Every enrolled machine would have reported "nothing published yet" as a sync failure; only an end-to-end run against the real server caught it.
+
+**[HCS-0006-R006]** A client MUST take an HCS error only from `error.data.hcsError` of a JSON-RPC 2.0 error response or from the `hcsError` member of an RFC 9457 problem details object, and MUST NOT derive an HCS code from any other member (for example a top-level `code`, `reason` or `title`). A response whose `hcsError` is missing or fails the HCS-0006 schema, or a problem whose `type` does not equal `urn:hcs:error:<hcsError.code>`, carries no HCS error.
+
+`client` cases give the response a client receives and the HCS error it must extract, or `null` when there is none. A client's tests should build their fake server responses from these fixtures (or from responses recorded from the real server), never from hand-written objects, so the fake cannot share the client's mistake.
+
 ## 5. Open questions
 
 - OQ-0006-1: whether errors need a stable machine-readable `retryable` hint (`timeout` usually is, `integrity_mismatch` is not). No consumer needs it yet.
