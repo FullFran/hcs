@@ -13,7 +13,7 @@
 
 A catalog manifest (HCS-0001) says what a host should run; it does not say who published it, whether it is current, or whether it was meant for this host. This document defines how a distribution signs a catalog and how a host decides to accept it: a signed envelope around the catalog, a root-signed set of online keys, the verification order with its error codes, and how the host moves to the accepted set. It is the DISTRO-1 profile of [composition-map.md](../docs/research/composition-map.md) section 5.
 
-It is derived from the signed envelope that HagaHarness, the first consumer, runs, adjusted where a neutral standard needs it ([lf-fit-distro-1-and-core-0.md](../docs/research/lf-fit-distro-1-and-core-0.md) section 2, row 7).
+It is derived from the signed envelope that the first host runs, adjusted where a neutral standard needs it ([lf-fit-distro-1-and-core-0.md](../docs/research/lf-fit-distro-1-and-core-0.md) section 2, row 7).
 
 Out of scope: how a host is enrolled and receives its trust anchor and assignment; transport (any HTTP or file delivery); package signing (HCS-0001 `contentHash` already binds each package to the signed catalog); new contribution kinds (issue #3).
 

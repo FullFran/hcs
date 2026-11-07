@@ -24,7 +24,7 @@
         ]
       }
     ],
-    "x-hagaharness-trust": "verified"
+    "x-example-trust": "verified"
   },
   "expect": {
     "outcome": "valid"

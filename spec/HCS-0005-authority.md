@@ -40,7 +40,7 @@ R001 and R002 are checked by the reference evaluator in the runner (`authority` 
 
 ## 4. Open questions
 
-- OQ-0005-1: a minimal shared permission vocabulary (filesystem, network, process, secrets). Every harness needs one; defining it before a second consumer exists risks encoding HagaHarness choices.
+- OQ-0005-1: a minimal shared permission vocabulary (filesystem, network, process, secrets). Every harness needs one; defining it before a second consumer exists risks encoding the first host's choices.
 - OQ-0005-2: grant scope dimensions (subject, project, session, operation) named in the composition map.
 - OQ-0005-3: whether requests live in the catalog manifest entry or in a document inside the package. A catalog-side list lets the host decide before fetching; a package-side list travels with the code.
 - OQ-0005-4: whether a grant survives a package version change. The current rule (grants keyed by entry id) means it does; a host can still re-ask through policy.

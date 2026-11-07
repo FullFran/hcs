@@ -20,13 +20,13 @@
           {
             "kind": "skill",
             "path": "skills/notes",
-            "x-hagaharness-icon": "notes.svg"
+            "x-example-icon": "notes.svg"
           }
         ],
-        "x-hagaharness-channel": "stable"
+        "x-example-channel": "stable"
       }
     ],
-    "x-hagaharness": {
+    "x-example": {
       "tier": "community"
     }
   },

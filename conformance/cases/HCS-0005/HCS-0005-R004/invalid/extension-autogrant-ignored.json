@@ -1,5 +1,5 @@
 {
-  "description": "x-hagaharness-autogrant on a request does not grant.",
+  "description": "x-example-autogrant on a request does not grant.",
   "requirements": [
     "HCS-0005-R004"
   ],
@@ -13,7 +13,7 @@
           {
             "permission": "dev.example.fs.read",
             "reason": "read notes",
-            "x-hagaharness-autogrant": true
+            "x-example-autogrant": true
           }
         ]
       }
