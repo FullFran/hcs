@@ -726,35 +726,35 @@
       "id": "HCS-0008-R025",
       "document": "HCS-0008",
       "keyword": "MUST",
-      "text": "A host MUST start each engine run so that the engine reads its configuration, skills, extensions, prompts, MCP servers and credentials only from the projection and from host-owned settings, and nothing from user-global or workspace locations.",
+      "text": "A host MUST start each engine run so that the engine reads its configuration, skills, extensions, prompts, MCP servers and credentials only from the projection and from host settings, never from user-global locations, and never from workspace locations except instruction files the host allows as a host-owned setting.",
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
       "id": "HCS-0008-R026",
       "document": "HCS-0008",
       "keyword": "MUST",
-      "text": "A host MUST project a generation over ACP only to an agent whose `initialize` response advertises, in `agentCapabilities._meta[\"io.github.fullfran.hcs\"]`, an object whose `projection` member is `\"0.1\"`.",
+      "text": "A host MUST project a generation over ACP only to an agent whose `initialize` response advertises, in `agentCapabilities._meta[\"io.github.fullfran.hcs\"]`, an object whose `projection` member is `\"0.1\"`. With any other agent it starts no engine run from the generation and reports `unsupported_contribution` for each entry with contributions for that engine (R004, R017).",
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
       "id": "HCS-0008-R027",
       "document": "HCS-0008",
       "keyword": "MUST",
-      "text": "A host that creates an engine run over ACP MUST send, in the `session/new` request, the generation's MCP servers in `mcpServers` and an object `_meta[\"io.github.fullfran.hcs\"].generation` with the generation's `id` and the absolute paths of its skill directories in `skills`, valid against the `sessionMeta` schema; the paths MUST lie inside the generation. An agent that advertises R026 MUST load skills only from those paths and from host-owned settings.",
+      "text": "A host that creates an engine run over ACP MUST send, in the `session/new` request, the generation's MCP servers in `mcpServers` and an object `_meta[\"io.github.fullfran.hcs\"].generation` with the generation's `id` and, in `skills`, the absolute paths of every skill directory the run gets, valid against the `sessionMeta` schema: the generation's skills, and the host-provided defaults and host-owned skills no generation contribution replaces (R006). A path of a generation skill MUST resolve inside the generation by its identifier, never through a pointer the host moves (R001), and no path may contain `..` segments. An agent that advertises R026 MUST load skills only from those paths.",
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
       "id": "HCS-0008-R028",
       "document": "HCS-0008",
       "keyword": "MUST",
-      "text": "An agent that advertises R026 MUST refuse a `session/load` whose `_meta[\"io.github.fullfran.hcs\"].generation.id` differs from the generation the session was created with, with a JSON-RPC error that carries an HCS error with code `generation_mismatch` (HCS-0006-R003). A host MUST NOT reopen a session on another generation; it starts a new session instead.",
+      "text": "A host MUST send `_meta[\"io.github.fullfran.hcs\"].generation` in every ACP `session/load` and `session/resume`, as in R027. An agent that advertises R026 MUST refuse a `session/load` or `session/resume` that lacks it or whose `generation.id` differs from the generation the session was created with, with a JSON-RPC error that carries an HCS error with code `generation_mismatch` (HCS-0006-R003). A host MUST NOT reopen a session on another generation; it starts a new session instead.",
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
       "id": "HCS-0008-R029",
       "document": "HCS-0008",
       "keyword": "MUST",
-      "text": "An agent that advertises R026 MUST answer the request `_io.github.fullfran.hcs/loaded` (params `{ \"sessionId\": <id> }`) with the names of the skills and MCP servers the session loaded, valid against the `loadedResult` schema. A host that drives the engine over ACP MUST use that answer as the engine's report under R014.",
+      "text": "An agent that advertises R026 MUST answer the request `_io.github.fullfran.hcs/loaded` (params `{ \"sessionId\": <id> }`) with what the session has loaded at that moment, valid against the `loadedResult` schema: skills by their Agent Skills `name`, MCP servers by the `name` the host gave them in `mcpServers`. A host that drives the engine over ACP MUST use that answer as the engine's report under R014; it may ask again until the health deadline passes (R013).",
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {

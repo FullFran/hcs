@@ -5,9 +5,9 @@
   ],
   "level": "host",
   "input": {
-    "scenario": "The ACP agent's initialize response has no agentCapabilities._meta[\"io.github.fullfran.hcs\"]."
+    "scenario": "The ACP agent's initialize response has no agentCapabilities._meta[\"io.github.fullfran.hcs\"]; the generation has entries for that engine."
   },
   "expect": {
-    "behaviour": "The host sends no session/new carrying a generation to it and does not confirm the generation on that engine."
+    "behaviour": "The host sends no session/new from the generation to it and reports unsupported_contribution for each of those entries; per R017 this does not fail the generation on other engines."
   }
 }
