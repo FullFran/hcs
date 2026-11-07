@@ -243,8 +243,11 @@ bundled skill) replaces it; that is not a collision. A contribution may
 
 A guard on model requests (for example a content-safety proxy) is a host-owned
 setting placed on the model transport, not in engine hooks, so the engine's own
-requests (compaction, summaries) pass through it; if it fails, nothing reaches
-the provider (HCS-0008-R019, R020).
+requests (compaction, summaries) and tools that build their own model clients
+pass through it: no request of the run can leave toward a provider except
+through the guard, which takes network confinement (keeping keys out of the run
+is a second layer). If it fails, nothing reaches the provider (HCS-0008-R019,
+R020).
 
 ```mermaid
 flowchart LR

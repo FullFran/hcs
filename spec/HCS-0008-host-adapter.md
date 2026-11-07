@@ -108,7 +108,11 @@ The skill directory is Agent Skills as is: the adapter places it, or a link to i
 
 **[HCS-0008-R012]** An adapter MUST take the value of a secret input only from the secrets the host grants to that entry, MUST NOT write it inside the generation, and MUST report `permission_denied` for an entry with a required secret input that has no granted value.
 
-Inputs are environment variables, headers, arguments and URL variables (`KeyValueInput` and `Input` in the schema). The engine-level name of an MCP server is the adapter's choice (appendix A); it is subject to R006 and R007 like any other name. Where the engine can resolve a reference at start (for example an environment placeholder), the adapter SHOULD write the reference rather than the value, so that the projection holds no secret either.
+Inputs are environment variables, headers, arguments and URL variables (`KeyValueInput` and `Input` in the schema). The engine-level name of an MCP server is the adapter's choice (appendix A); it is subject to R006 and R007 like any other name. Where the engine can resolve a reference at start (for example an environment placeholder), the adapter SHOULD write the reference rather than the value, so that the projection holds no secret either. Such a reference is compatible with R030 only if the engine resolves it once and does not interpret the value it inserts.
+
+Engines may interpret characters in the values they pass to an MCP server: one observed engine runs a value that starts with `!` as a shell command and expands `$VAR`. A value that is data in a signed `server.json` would then become code on the user's machine. MCP Registry `server.json` defines its own substitutions: `{name}` in an input's `value` filled from that input's `variables` (an unknown `{name}` stays as written), and `{name}` in a transport `url` filled from the remote's `variables` or, for a package, from its argument and environment variable names. Nothing else in a value has a meaning ([ADR-0028](../docs/adr/0028-literal-values-and-model-reachability.md)).
+
+**[HCS-0008-R030]** An adapter MUST apply the `server.json` substitutions once, never to text a substitution inserted, and MUST deliver each resulting value or URL of an MCP server input (environment variables, headers, arguments, URL variables) so that the server receives exactly that string, escaping it for the engine or passing it through a channel the engine does not interpret. It MUST report `unsupported_contribution` for an entry with an input it cannot deliver that way to that engine; it decides this without reading secret values, treating a secret as an arbitrary string.
 
 #### 6.4.1 Server code inside the generation (`registryType: "file"`)
 
@@ -124,9 +128,9 @@ A package can ship the code of a local MCP server, not only its descriptor: a sc
 
 The host owns the runtime and its flags (R023): runtime arguments, or control variables such as `NODE_OPTIONS`, in a signed descriptor would let a publisher change how the host's own runtime behaves. Arguments are readable by any local user (for example `/proc/<pid>/cmdline`); the environment is readable only by the same user and administrators, so it is less exposed (R024). A runtime that is present but fails to start the server is a health failure (R014, R015), not a projection error.
 
-When several rules apply to one `mcp-server` contribution, an adapter reports only the first, in this order: `manifest_invalid` (R010, R011, R021), then `unsupported_contribution` (R024, R023), then `permission_denied` (R012). An adapter does not ask for authority for a server it will not start.
+When several rules apply to one `mcp-server` contribution, an adapter reports only the first, in this order: `manifest_invalid` (R010, R011, R021), then `unsupported_contribution` (R024, R023, R030), then `permission_denied` (R012). An adapter does not ask for authority for a server it will not start.
 
-Before this section, `registryType: "file"` had no meaning in HCS: R010 accepted it as an open string, and nothing said how to start it. This section gives it one; it does not change the meaning of any value HCS already defined (HCS-0000 section 5). Whether to run the code is decided by the signed catalog (HCS-0007) and the entry's content hash; what the running server may do is decided by HCS-0005 grants. HCS adds no separate allowlist of executable entries. Values given to the server also follow issue #45 (literal delivery).
+Before this section, `registryType: "file"` had no meaning in HCS: R010 accepted it as an open string, and nothing said how to start it. This section gives it one; it does not change the meaning of any value HCS already defined (HCS-0000 section 5). Whether to run the code is decided by the signed catalog (HCS-0007) and the entry's content hash; what the running server may do is decided by HCS-0005 grants. HCS adds no separate allowlist of executable entries. Values given to the server also follow R030 (literal delivery).
 
 
 ### 6.5 Instructions, policies and other extension kinds
@@ -137,11 +141,16 @@ HCS-0001 defines two core kinds, `skill` and `mcp-server`. Instruction files, ag
 
 A host-owned setting can be a guard on what reaches the model, for example a content-safety proxy that masks personal data. Placing it in an engine's message hooks does not cover every request: engines commonly let a hook that throws continue with the unmodified data, and they send model requests of their own (context compaction, branch summaries, cache warming) that never pass through those hooks. All of them pass through the engine's model transport ([ADR-0025](../docs/adr/0025-host-guards-fail-closed.md)).
 
-**[HCS-0008-R019]** A host that declares a guard on model requests as a host-owned setting MUST place it where every model request of an engine run passes through it, including the requests the engine makes for itself, and MUST NOT count a hook inside the engine as that guard.
+**[HCS-0008-R019]** A host that declares a guard on model requests as a host-owned setting MUST run the engine so that no request from a process of the run (the engine, its extensions and tools, and the MCP servers the run starts) can leave toward a model provider except through that guard, which runs outside those processes, and MUST NOT count a hook inside the engine, or a wrapper around the engine's own provider object, as that guard.
 
 **[HCS-0008-R020]** When such a guard is unavailable or fails on a request, a host MUST ensure that the request does not reach the model provider.
 
-The places that meet R019 are the model transport itself: a host-provided model provider or base URL that the projection sets as a host-owned setting (R007 keeps a contribution from moving it), or an egress proxy the engine cannot bypass. Engine hooks may add a second layer; they never replace it.
+R019 is a property of reachability, not of a code path: a component inside the run that resolves a model on its own (for example a code-execution tool that looks up a provider) bypasses a guard that only wraps the session's provider. A request that reaches a provider and is then refused has already delivered its body, which for a guard that masks data is the leak itself. So the property is met only when the request cannot leave:
+
+- **Network confinement** meets R019: the run's outbound traffic is denied by default, and the guard, or an egress proxy in front of it, is the only allowed destination for model providers (for example a Kubernetes `NetworkPolicy` with default-deny egress, or the OpenSandbox egress policy).
+- **Credential confinement** does not meet it alone. If only the guard holds provider keys, a bypassing request fails at the provider, but its body has been sent. It is a second layer that stops authenticated use. The first host does this with an environment allow-list and in-memory credentials held outside the engine's processes; its tests show that keys planted in the environment and the engine's credential file are never used.
+
+Granting a provider credential to an MCP server of the run (R012) gives that server a direct route to a model; with a declared guard, its traffic falls under R019 like any other process of the run. A host-provided provider or base URL that the projection sets as a host-owned setting (R007 keeps a contribution from moving it) points the engine at the guard; it does not confine anything by itself. Engine hooks may add a second layer; they never replace it.
 
 ### 6.7 No ambient configuration
 
@@ -184,7 +193,7 @@ This is UAPI.1 boot counting with one try ([uapi-boot-counting.md](../docs/stand
 
 ## 8. Conformance
 
-`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008, R013 to R016, R019, R020, R022, R025 and R028 need a running engine and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009 and R018 are SHOULDs and have no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's. R021, R026, R027 and R029 have both `projection` or `document` cases and `host` cases: their shape is checked by schema or the reference projection, and their behaviour needs a running engine.
+`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008, R013 to R016, R019, R020, R022, R025, R028 and R030 need a running engine (R030 depends on what each engine interprets, which the reference projection does not model) and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009 and R018 are SHOULDs and have no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's. R021, R026, R027 and R029 have both `projection` or `document` cases and `host` cases: their shape is checked by schema or the reference projection, and their behaviour needs a running engine.
 
 ## 9. Open questions
 
@@ -202,6 +211,7 @@ Observed by the first host on 2026-11-06 at the engine versions shown; not verif
 | --- | --- | --- | --- |
 | Skills | `skills.paths` (recursive scan for `SKILL.md`), in a config file or the `OPENCODE_CONFIG_CONTENT` environment value | `--skill <dir>` (repeatable) or `settings.json` `{"skills":[<dir>]}` | `--add-dir <dir>` loads `<dir>/.claude/skills/<name>/SKILL.md`; `--plugin-dir <package>` loads one package as a plugin with names `<plugin>:<skill>` (R009 not met); a folder of packages without manifests loads nothing; `permissions.additionalDirectories` does not load skills |
 | MCP servers | `mcp{}`; headers accept `{env:VAR}` references | `~/.pi/agent/mcp.json` | managed `managed-mcp.json` |
+| Interpreted MCP values (R030) | `{env:VAR}` in headers; the engine documents `{env:…}` and `{file:…}` substitution across its configuration (not verified by a host) | env and header values: a leading `!` runs a shell command, `$VAR` expands; escape `$` as `$$` and a leading `!` as `$!` (checked against the engine's own resolver) | the engine documents `${VAR}` and `${VAR:-default}` expansion in MCP command, args, env, url and headers (not verified by a host) |
 | Instructions | `instructions[]` | not observed | managed `CLAUDE.md` |
 | Permissions | `permission{}` | not observed | managed `managed-settings.json` |
 | Host-owned layer | host config file, not writable by generation content | not observed | `/etc/claude-code/` managed files, highest precedence |
