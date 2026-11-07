@@ -57,6 +57,7 @@ Distributions extend HCS documents only through extension members.
 
 - An extension member name matches `^x-[a-z0-9]+(-[a-z0-9]+)*$`; the first segment after `x-` names the distribution (for example `x-example` or `x-example-trust`).
 - HCS schemas reject unknown members that are not extension members (`additionalProperties: false` plus `patternProperties` for `^x-`).
+- Where another protocol asks for reverse-DNS names for extensions (ACP `_meta` keys and `_`-prefixed methods, MCP `_meta`), HCS's own extensions use the namespace `io.github.fullfran.hcs`. It follows the GitHub-backed reverse-DNS convention the MCP Registry uses for publishers without a domain. Like the `urn:hcs:` schema identifiers ([ADR-0002](../docs/adr/0002-schema-ids-as-urns.md)), it is provisional until the project has a domain of its own ([ADR-0027](../docs/adr/0027-projection-over-acp.md)).
 
 **[HCS-0000-R003]** A host MUST NOT reject a document because it contains extension members it does not understand.
 
