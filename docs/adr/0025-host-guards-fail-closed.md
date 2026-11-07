@@ -1,6 +1,6 @@
 # ADR-0025: Host guards sit on a boundary the engine cannot bypass and fail closed
 
-**Status:** Proposed (2026-11-07)
+**Status:** Proposed (2026-11-07); R019 refined by [ADR-0028](0028-literal-values-and-model-reachability.md) (reachability)
 
 ## Context
 

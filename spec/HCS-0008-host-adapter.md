@@ -110,6 +110,10 @@ The skill directory is Agent Skills as is: the adapter places it, or a link to i
 
 Inputs are environment variables, headers, arguments and URL variables (`KeyValueInput` and `Input` in the schema). The engine-level name of an MCP server is the adapter's choice (appendix A); it is subject to R006 and R007 like any other name. Where the engine can resolve a reference at start (for example an environment placeholder), the adapter SHOULD write the reference rather than the value, so that the projection holds no secret either.
 
+Engines may interpret characters in the values they pass to an MCP server: one observed engine runs a value that starts with `!` as a shell command and expands `$VAR`. A value that is data in a signed `server.json` would then become code on the user's machine. MCP Registry `server.json` defines one substitution of its own, `{name}` placeholders filled from an input's `variables`; nothing else in a value has a meaning ([ADR-0028](../docs/adr/0028-literal-values-and-model-reachability.md)).
+
+**[HCS-0008-R030]** An adapter MUST deliver each value of an MCP server input (environment variables, headers, arguments, URL variables) so that the server receives exactly the string that the `server.json` substitutions and the granted secrets produce, escaping it for the engine or passing it through a channel the engine does not interpret, and MUST report `unsupported_contribution` for an entry whose values it cannot deliver that way to that engine.
+
 #### 6.4.1 Server code inside the generation (`registryType: "file"`)
 
 A package can ship the code of a local MCP server, not only its descriptor: a script the engine starts over stdio. MCP Registry `server.json` describes packages that a client downloads from a registry (`npm`, `pypi`, `oci`, `nuget`, `mcpb`); its `registryType` is an open string, and no value names code that is already on disk. HCS profiles the value `file` for that case ([ADR-0026](../docs/adr/0026-mcp-server-code-in-the-generation.md)). The code is covered by the entry's `contentHash` in the signed catalog (HCS-0001-R007, HCS-0007), so `fileSha256` is not used.
@@ -137,11 +141,16 @@ HCS-0001 defines two core kinds, `skill` and `mcp-server`. Instruction files, ag
 
 A host-owned setting can be a guard on what reaches the model, for example a content-safety proxy that masks personal data. Placing it in an engine's message hooks does not cover every request: engines commonly let a hook that throws continue with the unmodified data, and they send model requests of their own (context compaction, branch summaries, cache warming) that never pass through those hooks. All of them pass through the engine's model transport ([ADR-0025](../docs/adr/0025-host-guards-fail-closed.md)).
 
-**[HCS-0008-R019]** A host that declares a guard on model requests as a host-owned setting MUST place it where every model request of an engine run passes through it, including the requests the engine makes for itself, and MUST NOT count a hook inside the engine as that guard.
+**[HCS-0008-R019]** A host that declares a guard on model requests as a host-owned setting MUST run the engine so that no process of the run can reach a model provider except through that guard, including requests the engine makes for itself and requests from extensions or tools that build their own model clients, and MUST NOT count a hook inside the engine, or a wrapper around the engine's own provider object, as that guard.
 
 **[HCS-0008-R020]** When such a guard is unavailable or fails on a request, a host MUST ensure that the request does not reach the model provider.
 
-The places that meet R019 are the model transport itself: a host-provided model provider or base URL that the projection sets as a host-owned setting (R007 keeps a contribution from moving it), or an egress proxy the engine cannot bypass. Engine hooks may add a second layer; they never replace it.
+R019 is a property of reachability, not of a code path: a component inside the run that resolves a model on its own (for example a code-execution tool that looks up a provider) bypasses a guard that only wraps the session's provider. Two mechanisms are known to meet it, and a host uses at least one:
+
+- **Credential confinement:** the run never holds provider credentials. Only the guard holds them and adds them to the requests it has checked, so a request that bypasses it fails at the provider. The first host does this with an environment allow-list and in-memory credentials, and tests that, with provider keys planted in the environment and in the engine's credential file, no request reaches anything but the guard.
+- **Network confinement:** the run's outbound traffic is denied by default, and the guard, or an egress proxy in front of it, is the only allowed destination for model providers (for example a Kubernetes `NetworkPolicy` with default-deny egress, or the OpenSandbox egress policy).
+
+A host-provided provider or base URL that the projection sets as a host-owned setting (R007 keeps a contribution from moving it) points the engine at the guard. It meets R019 only together with one of these mechanisms. Engine hooks may add a second layer; they never replace it.
 
 ### 6.7 No ambient configuration
 
@@ -184,7 +193,7 @@ This is UAPI.1 boot counting with one try ([uapi-boot-counting.md](../docs/stand
 
 ## 8. Conformance
 
-`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008, R013 to R016, R019, R020, R022, R025 and R028 need a running engine and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009 and R018 are SHOULDs and have no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's. R021, R026, R027 and R029 have both `projection` or `document` cases and `host` cases: their shape is checked by schema or the reference projection, and their behaviour needs a running engine.
+`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008, R013 to R016, R019, R020, R022, R025, R028 and R030 need a running engine and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009 and R018 are SHOULDs and have no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's. R021, R026, R027 and R029 have both `projection` or `document` cases and `host` cases: their shape is checked by schema or the reference projection, and their behaviour needs a running engine.
 
 ## 9. Open questions
 
@@ -202,6 +211,7 @@ Observed by the first host on 2026-11-06 at the engine versions shown; not verif
 | --- | --- | --- | --- |
 | Skills | `skills.paths` (recursive scan for `SKILL.md`), in a config file or the `OPENCODE_CONFIG_CONTENT` environment value | `--skill <dir>` (repeatable) or `settings.json` `{"skills":[<dir>]}` | `--add-dir <dir>` loads `<dir>/.claude/skills/<name>/SKILL.md`; `--plugin-dir <package>` loads one package as a plugin with names `<plugin>:<skill>` (R009 not met); a folder of packages without manifests loads nothing; `permissions.additionalDirectories` does not load skills |
 | MCP servers | `mcp{}`; headers accept `{env:VAR}` references | `~/.pi/agent/mcp.json` | managed `managed-mcp.json` |
+| Interpreted MCP values (R030) | `{env:VAR}` in headers | env and header values: a leading `!` runs a shell command, `$VAR` expands; escape `$` as `$$` and a leading `!` as `$!` (checked against the engine's own resolver) | not observed |
 | Instructions | `instructions[]` | not observed | managed `CLAUDE.md` |
 | Permissions | `permission{}` | not observed | managed `managed-settings.json` |
 | Host-owned layer | host config file, not writable by generation content | not observed | `/etc/claude-code/` managed files, highest precedence |
