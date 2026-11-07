@@ -324,6 +324,69 @@
       "source": "spec/HCS-0005-authority.md"
     },
     {
+      "id": "HCS-0005-R005",
+      "document": "HCS-0005",
+      "keyword": "MUST",
+      "text": "A host MUST apply an `allow_once` or `reject_once` answer to the one operation it was given for, and MUST NOT store it as a grant or a denial.",
+      "source": "spec/HCS-0005-authority.md"
+    },
+    {
+      "id": "HCS-0005-R006",
+      "document": "HCS-0005",
+      "keyword": "MUST",
+      "text": "A host MUST store an `allow_always` answer as a grant for that entry and permission, limited to the session in which it was given and carrying in `origin` the decision record of the answer, and MUST revoke it like any other grant (R003).",
+      "source": "spec/HCS-0005-authority.md"
+    },
+    {
+      "id": "HCS-0005-R007",
+      "document": "HCS-0005",
+      "keyword": "MUST",
+      "text": "A host MUST store a `reject_always` answer as a denial for that entry and permission, limited like R006, and MUST deny with `permission_denied` every later check the denial matches, even when a grant also matches.",
+      "source": "spec/HCS-0005-authority.md"
+    },
+    {
+      "id": "HCS-0005-R008",
+      "document": "HCS-0005",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT let a grant or denial that has a `session` match a check from another session or a check without a session.",
+      "source": "spec/HCS-0005-authority.md"
+    },
+    {
+      "id": "HCS-0005-R009",
+      "document": "HCS-0005",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT let the engine or the client keep an \"always\" answer where the host cannot revoke it; an operation the host has not decided under section 3.1 MUST be denied even if the engine or client remembers an earlier answer.",
+      "source": "spec/HCS-0005-authority.md"
+    },
+    {
+      "id": "HCS-0005-R010",
+      "document": "HCS-0005",
+      "keyword": "MUST",
+      "text": "A host MUST write a decision record for every permission decision it acts on and for every grant or denial it removes.",
+      "source": "spec/HCS-0005-authority.md"
+    },
+    {
+      "id": "HCS-0005-R011",
+      "document": "HCS-0005",
+      "keyword": "MUST",
+      "text": "A decision record MUST validate against the HCS-0005 `decisionRecord` schema and MUST NOT contain the operation's arguments, its result or any content of the conversation.",
+      "source": "spec/HCS-0005-authority.md"
+    },
+    {
+      "id": "HCS-0005-R012",
+      "document": "HCS-0005",
+      "keyword": "MUST",
+      "text": "A host that cannot write a decision record for an operation MUST deny that operation with `permission_denied`.",
+      "source": "spec/HCS-0005-authority.md"
+    },
+    {
+      "id": "HCS-0005-R013",
+      "document": "HCS-0005",
+      "keyword": "SHOULD",
+      "text": "A host that sends decision records to its distribution SHOULD send each one as a CloudEvents 1.0.2 event whose `data` is the record, as HCS-0007-R021 does for observed state.",
+      "source": "spec/HCS-0005-authority.md"
+    },
+    {
       "id": "HCS-0006-R001",
       "document": "HCS-0006",
       "keyword": "MUST",

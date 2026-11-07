@@ -7,7 +7,7 @@ Cases are data (`case.schema.json`), one file per case, in `cases/<document>/<re
 | `document` | yes | a JSON document against an HCS schema (`target`), plus semantic checks: `hcsVersion` first, duplicate entry ids, problem-details `type`/code equality |
 | `integrity` | yes | `size` and `contentHash` against base64 bytes (HCS-0001-R007) |
 | `resolution` | yes | the HCS-0003 algorithm: activation order and typed errors |
-| `authority` | yes | the HCS-0005 grant evaluation |
+| `authority` | yes | the HCS-0005 evaluation: grants, stored denials (a matching denial wins) and session limits |
 | `distribution` | yes | HCS-0007: signature input, key set and envelope verification with fixture keys and a stated clock |
 | `projection` | yes | HCS-0008: the reference projection of a generation (`runner/projection.py`): errors per entry and the entries the host may report active |
 | `host` | no, reported `pending` | a scenario and expected behaviour that needs a running host |
