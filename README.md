@@ -85,7 +85,7 @@ profiles, reference runner), `requirements/requirements.json`, `LICENSE`,
 2. **Vendor and verify.**
 
    ```sh
-   V=0.1.0-draft.1
+   V=0.1.0-draft.2
    EXPECTED=<tarball sha256 from the release notes>
    curl -fsSLO "https://github.com/FullFran/hcs/releases/download/v$V/hcs-$V.tar.gz"
    echo "$EXPECTED  hcs-$V.tar.gz" | sha256sum -c -
@@ -118,7 +118,9 @@ change, a removed or renamed member bumps it.
 
 Maintainers build the artefact with `python3 tools/build_release.py --version
 <version>` (output in `dist/`, ignored by git); `--check` builds twice and
-fails unless the bytes match. Release notes live in `docs/releases/`.
+fails unless the bytes match. Markdown links to files outside the artefact are
+rewritten to URLs at tag `v<version>`, and a link the build cannot resolve
+fails it. Release notes live in `docs/releases/`.
 
 ## License
 

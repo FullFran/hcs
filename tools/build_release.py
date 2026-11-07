@@ -16,6 +16,10 @@ same commit and version always give the same bytes. It writes:
   <out>/hcs-<version>.tar.gz           the same tree; fixed mtime, owner and mode, sorted members
   <out>/hcs-<version>.tar.gz.sha256    `sha256sum -c` line for the tarball
 
+Markdown links that point outside the artefact are rewritten to absolute URLs at tag v<version>,
+so a vendored copy has no broken relative links; a link to a path missing from the repository stops
+the build.
+
 --check builds twice into temporary directories and fails unless both builds are byte-identical.
 No dependencies beyond Python 3.10+ and git.
 """
@@ -25,6 +29,7 @@ import hashlib
 import io
 import json
 import pathlib
+import posixpath
 import re
 import shutil
 import subprocess
@@ -37,6 +42,10 @@ INCLUDE = ["LICENSE", "spec", "schemas", "conformance", "requirements", "tools/e
 SEMVER = re.compile(r"^0\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$")
 HEADER_ROW = re.compile(r"^\| ([^|]+?) \| (.+?) \|$")
 INDEX_FORMAT = 1
+REPO_URL = "https://github.com/FullFran/hcs"
+MD_LINK = re.compile(r"(\[[^\]]*\])\(([^)\s#]*)(#[^)\s]*)?\)")
+CODE = re.compile(r"```.*?```|`[^`\n]*`", re.S)
+URI_SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 
 
 def git(*args, binary=False):
@@ -55,6 +64,43 @@ def read_tree(ref):
             elif not member.isdir():
                 sys.exit(f"unsupported member type in release tree: {member.name}")
     return files
+
+
+def rewrite_links(files, version, ref):
+    """Point Markdown links that leave the artefact at the tagged repository; fail on any broken one.
+
+    A relative link whose target is inside the artefact is kept. One whose target exists elsewhere in the
+    repository at ref becomes an absolute URL at tag v<version>. Anything else stops the build.
+    """
+    tree = set(git("ls-tree", "-r", "--name-only", ref).split("\n")) - {""}
+    tree_dirs = {str(parent) for p in tree for parent in pathlib.PurePosixPath(p).parents if str(parent) != "."}
+    out, broken = dict(files), []
+    for path, data in files.items():
+        if not path.endswith(".md"):
+            continue
+        base = posixpath.dirname(path)
+
+        def fix(m):
+            target, frag = m.group(2), m.group(3) or ""
+            if not target or URI_SCHEME.match(target):
+                return m.group(0)
+            resolved = posixpath.normpath(posixpath.join(base, target))
+            if resolved in files or any(f.startswith(resolved.rstrip("/") + "/") for f in files):
+                return m.group(0)
+            kind = "blob" if resolved in tree else "tree" if resolved.rstrip("/") in tree_dirs else None
+            if kind is None or resolved.startswith(".."):
+                broken.append(f"{path}: {target}")
+                return m.group(0)
+            return f"{m.group(1)}({REPO_URL}/{kind}/v{version}/{resolved.rstrip('/')}{frag})"
+
+        text, parts, last = data.decode("utf-8"), [], 0
+        for code in CODE.finditer(text):  # links inside code spans and blocks are text, not links
+            parts += [MD_LINK.sub(fix, text[last:code.start()]), code.group(0)]
+            last = code.end()
+        out[path] = ("".join(parts) + MD_LINK.sub(fix, text[last:])).encode("utf-8")
+    if broken:
+        sys.exit("broken relative links:\n  " + "\n  ".join(broken))
+    return out
 
 
 def document_entry(path, text):
@@ -134,7 +180,7 @@ def sha256(data):
 
 
 def build(version, ref, out):
-    files = read_tree(ref)
+    files = rewrite_links(read_tree(ref), version, ref)
     files["index.json"] = (json.dumps(build_index(version, files), indent=2, ensure_ascii=False) + "\n").encode()
     files["SHA256SUMS"] = "".join(f"{sha256(files[p])}  {p}\n" for p in sorted(files)).encode()
 
