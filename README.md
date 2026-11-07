@@ -1,6 +1,14 @@
 # HCS · Harness Composition Specification
 
-**Status:** draft, pre-0.1. Nothing here is a published standard; pre-releases are tagged `v0.1.0-draft.N`.
+**Status:** draft, pre-0.1. Pre-releases are tagged `v0.1.0-draft.N`.
+
+HCS is my personal specification for building agent harnesses quickly and
+comfortably. I have built many harnesses, and each one needed the same
+answers again; HCS writes those answers down once, with schemas and test
+cases, so the next harness starts from them instead of from scratch. It is
+not an industry standard and does not try to become one. It is public in
+case it is useful to someone else: pin a release, take what fits, and diverge
+where your product needs to.
 
 HCS defines how an agent harness composes plugins: manifest, capabilities,
 dependency resolution, lifecycle, authority (plugins request, the host grants),
@@ -12,14 +20,14 @@ distribution metadata).
 ## Rules for growing this repo
 
 1. **Need-driven.** A requirement enters HCS only when a real harness needs it.
-   The first host is the first consumer; a second, independent host is expected.
+   Every harness I build is a consumer, and each one pins the release it uses.
 2. **Schema is the source of truth.** Normative prose lives in `spec/`
    (MUST/SHOULD/MAY per RFC 2119/8174); machine-readable contracts live in
    `schemas/` (JSON Schema 2020-12). Language SDKs are generated from the
    schemas, never the other way around.
 3. **No claim without a test.** Every MUST gets a case in `conformance/`.
-   HCS is not called a standard until two independent hosts pass the same
-   profile.
+   A harness measures itself against those cases and records where it
+   diverges on purpose; HCS informs a harness, it does not block it.
 4. **Specification versus distribution.** Anything every harness would need
    belongs here. Product decisions (for example a host's privacy guards or
    trust tiers) belong to the distribution, under an `x-<distribution>`
