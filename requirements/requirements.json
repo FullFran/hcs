@@ -299,7 +299,7 @@
       "id": "HCS-0005-R001",
       "document": "HCS-0005",
       "keyword": "MUST",
-      "text": "A host MUST deny an operation that needs a permission unless it holds a grant for that entry and that permission, and MUST report the denial with code `permission_denied`.",
+      "text": "A host MUST deny an operation that needs a permission unless it holds a grant for that entry and that permission or a person allowed that one operation (R005), and MUST report the denial with code `permission_denied`.",
       "source": "spec/HCS-0005-authority.md"
     },
     {
@@ -355,7 +355,7 @@
       "id": "HCS-0005-R009",
       "document": "HCS-0005",
       "keyword": "MUST NOT",
-      "text": "A host MUST NOT let the engine or the client keep an \"always\" answer where the host cannot revoke it; an operation the host has not decided under section 3.1 MUST be denied even if the engine or client remembers an earlier answer.",
+      "text": "A host MUST NOT let the engine or the client keep an \"always\" answer where the host cannot revoke it; an operation the host has not decided under section 3.1 or 3.2 MUST be denied even if the engine or client remembers an earlier answer.",
       "source": "spec/HCS-0005-authority.md"
     },
     {
@@ -369,7 +369,7 @@
       "id": "HCS-0005-R011",
       "document": "HCS-0005",
       "keyword": "MUST",
-      "text": "A decision record MUST validate against the HCS-0005 `decisionRecord` schema and MUST NOT contain the operation's arguments, its result or any content of the conversation.",
+      "text": "A decision record MUST validate against the HCS-0005 `decisionRecord` schema and MUST NOT contain the operation's arguments, its result or any content of the conversation, in any member, extension members included.",
       "source": "spec/HCS-0005-authority.md"
     },
     {

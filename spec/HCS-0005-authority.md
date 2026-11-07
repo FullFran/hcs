@@ -28,13 +28,13 @@ What existing standards cover and what they do not:
 - **Decision** (`decision`): `{ "allow": true }` or `{ "allow": false, "error": <HCS-0006 error with code permission_denied> }`.
 - **Decision record** (`decisionRecord`): what a host writes for each decision it acts on (section 3.3).
 
-A grant or denial **matches** a check when `entry` and `permission` are equal and, if it has a `session`, the check has the same `session`. A check is denied when a denial matches it; otherwise it is allowed when a grant matches it; otherwise it is denied.
+A grant or denial **matches** a check when `entry` and `permission` are equal and, if it has a `session`, the check has the same `session`. A check is denied when a denial matches it; otherwise it is allowed when a grant matches it or a person allowed that one operation (`allow_once`, R005); otherwise it is denied.
 
 ## 3. Requirements
 
 ### 3.1 Enforcement
 
-**[HCS-0005-R001]** A host MUST deny an operation that needs a permission unless it holds a grant for that entry and that permission, and MUST report the denial with code `permission_denied`.
+**[HCS-0005-R001]** A host MUST deny an operation that needs a permission unless it holds a grant for that entry and that permission or a person allowed that one operation (R005), and MUST report the denial with code `permission_denied`.
 
 **[HCS-0005-R002]** A host MUST NOT treat a permission request, or any contribution metadata such as Agent Skills `allowed-tools`, as a grant.
 
@@ -42,7 +42,7 @@ A grant or denial **matches** a check when `entry` and `permission` are equal an
 
 **[HCS-0005-R004]** A host MUST NOT let an extension member on a request turn the request into a grant.
 
-R001 and R002 are checked by the reference evaluator in the runner (`authority` cases). R003 needs a running host and has `host` cases only.
+R001, R002, R004, R007 and R008 are checked by the reference evaluator in the runner (`authority` cases); the evaluator has no input for a one-operation answer, which is checked by `host` cases (R005). R003 needs a running host and has `host` cases only.
 
 ### 3.2 Answers from a person
 
@@ -56,7 +56,9 @@ A host may ask a person before an operation, for example through ACP `session/re
 
 **[HCS-0005-R008]** A host MUST NOT let a grant or denial that has a `session` match a check from another session or a check without a session.
 
-**[HCS-0005-R009]** A host MUST NOT let the engine or the client keep an "always" answer where the host cannot revoke it; an operation the host has not decided under section 3.1 MUST be denied even if the engine or client remembers an earlier answer.
+A host that stores session-limited answers gives every check made inside a session that session; a check without a session is outside every session-limited grant and denial.
+
+**[HCS-0005-R009]** A host MUST NOT let the engine or the client keep an "always" answer where the host cannot revoke it; an operation the host has not decided under section 3.1 or 3.2 MUST be denied even if the engine or client remembers an earlier answer.
 
 A host that cannot meet R009 with a given engine does not offer the `allow_always` and `reject_always` options on that engine. Whether some permissions refuse "always" answers entirely is issue #16; what happens when no answer arrives is issue #31.
 
@@ -81,13 +83,13 @@ A decision record has these members:
 
 **[HCS-0005-R010]** A host MUST write a decision record for every permission decision it acts on and for every grant or denial it removes.
 
-**[HCS-0005-R011]** A decision record MUST validate against the HCS-0005 `decisionRecord` schema and MUST NOT contain the operation's arguments, its result or any content of the conversation.
+**[HCS-0005-R011]** A decision record MUST validate against the HCS-0005 `decisionRecord` schema and MUST NOT contain the operation's arguments, its result or any content of the conversation, in any member, extension members included.
 
 **[HCS-0005-R012]** A host that cannot write a decision record for an operation MUST deny that operation with `permission_denied`.
 
 **[HCS-0005-R013]** A host that sends decision records to its distribution SHOULD send each one as a CloudEvents 1.0.2 event whose `data` is the record, as HCS-0007-R021 does for observed state.
 
-A record whose `decider.kind` is `grant` names the grant; that grant's `origin` names the record of the person's answer that created it, so a decision made by a remembered answer can be traced back to the person and the moment.
+The schema checks the shape of a record, not that its members agree with each other (for example `outcome` `allow` with `decider.kind` `denial`); keeping them consistent is the host's job. A record whose `decider.kind` is `grant` names the grant; that grant's `origin` names the record of the person's answer that created it, so a decision made by a remembered answer can be traced back to the person and the moment.
 
 ## 4. Open questions
 
