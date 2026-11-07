@@ -102,9 +102,12 @@ profiles, reference runner), `requirements/requirements.json`, `LICENSE`,
 4. **Run the conformance cases in your test suite.** `index.json` lists every
    case with its `requirements`, `level` and `polarity` (`valid`/`invalid`),
    the profiles with their requirement ids, the schemas by `$id` and the
-   documents with `status`, `version` and `provisional`. Select the cases of the
-   profile you implement, feed each case's `input` to your implementation and
-   compare with its `expect`. `python3 vendor/hcs/<version>/conformance/runner/run.py`
+   documents with `status`, `version` and `provisional`. Each requirement lists
+   the `profiles` that include it and its number of `cases`, and `unprofiled`
+   lists every requirement that has cases but is in no profile yet. Select the
+   cases of the profile you implement, plus the `unprofiled` requirements you
+   track, feed each case's `input` to your implementation and compare with its
+   `expect`. A requirement in no profile is not part of any conformance claim. `python3 vendor/hcs/<version>/conformance/runner/run.py`
    (needs `jsonschema>=4.18`) runs the reference semantics on the same cases;
    `host`-level cases are reported `pending` until a system-under-test
    interface exists (#20).

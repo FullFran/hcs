@@ -9,8 +9,9 @@ same commit and version always give the same bytes. It writes:
 
   <out>/hcs-<version>/                 the artefact tree (what a consumer vendors)
     LICENSE
-    index.json                         machine-readable index (documents, schemas, requirements,
-                                       profiles, cases, runner)
+    index.json                         machine-readable index (documents, schemas, requirements with
+                                       their profiles and case counts, profiles, unprofiled requirements,
+                                       cases, runner)
     SHA256SUMS                         sha256 of every other file in the tree, `sha256sum -c` format
     spec/ schemas/ conformance/ requirements/ tools/extract_requirements.py
   <out>/hcs-<version>.tar.gz           the same tree; fixed mtime, owner and mode, sorted members
@@ -151,6 +152,18 @@ def build_index(version, files):
             polarity = pathlib.PurePosixPath(p).parent.name
             cases.append({"path": p, "requirements": doc["requirements"], "level": doc["level"],
                           "polarity": polarity})
+    known = {r["id"] for r in reqs}
+    for prof in profiles:
+        unknown = sorted(set(prof["requirements"]) - known)
+        if unknown:
+            sys.exit(f"{prof['path']}: unknown requirement ids {unknown}")
+    in_profiles = {r: [p["profile"] for p in profiles if r in p["requirements"]] for r in known}
+    case_count = {r: 0 for r in known}
+    for case in cases:
+        for r in case["requirements"]:
+            case_count[r] += 1
+    # requirements with cases that no profile lists: reachable only through this list (issue #43)
+    unprofiled = [r["id"] for r in reqs if case_count[r["id"]] and not in_profiles[r["id"]]]
     major, minor = version.split(".")[:2]
     return {
         "indexFormat": INDEX_FORMAT,
@@ -160,9 +173,11 @@ def build_index(version, files):
         "schemas": schemas,
         "requirements": {
             "path": "requirements/requirements.json",
-            "items": [{"id": r["id"], "document": r["document"], "keyword": r["keyword"]} for r in reqs],
+            "items": [{"id": r["id"], "document": r["document"], "keyword": r["keyword"],
+                       "profiles": in_profiles[r["id"]], "cases": case_count[r["id"]]} for r in reqs],
         },
         "profiles": profiles,
+        "unprofiled": unprofiled,
         "conformance": {
             "caseSchema": json.loads(files["conformance/case.schema.json"])["$id"],
             "cases": cases,
