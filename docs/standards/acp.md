@@ -41,6 +41,7 @@ A JSON-RPC 2.0 protocol between a client (typically a code editor) and a coding 
 - HCS-0005: `session/request_permission` is the ACP channel to ask the user; HCS grants are decided by the host and MAY surface through it, but ACP capabilities (`fs.*`, `terminal`) describe client features, not plugin authority. HCS-0005 section 3.2 maps the four option kinds onto host-held grants and denials limited to the session (ADR-0023).
 - HCS-0006: HCS error codes map onto ACP JSON-RPC codes (`-32601`, `-32602`, `-32002`, `-32800`); new HCS codes, if needed on the wire, go outside the reserved ranges.
 - HCS-0000: HCS host extensions on ACP use `_`-prefixed methods with an HCS reverse-DNS namespace and `_meta` keys on capability objects.
+- HCS-0008 section 6.8 defines that extension (namespace `io.github.fullfran.hcs`): capability `{ "projection": "0.1" }`, `session/new` `_meta` with `generation.id` and `generation.skills`, `generation_mismatch` on `session/load`, and the `_io.github.fullfran.hcs/loaded` request ([ADR-0027](../adr/0027-projection-over-acp.md)). ACP v1 has no skills, no creation identifier and no report of loaded resources; HCS proposes them upstream.
 
 ## Pitfalls for HCS
 

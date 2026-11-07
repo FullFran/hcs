@@ -35,7 +35,8 @@
         "timeout",
         "plugin_failed",
         "signature_invalid",
-        "rollback_rejected"
+        "rollback_rejected",
+        "generation_mismatch"
       ]
     },
     "jsonrpcErrorResponse": {

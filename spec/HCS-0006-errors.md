@@ -54,6 +54,7 @@ A host that composes plugins fails in a small number of ways that callers need t
 | `timeout` | a lifecycle step or call exceeded the host's deadline, including the health check of a new generation | HCS-0004, HCS-0008 |
 | `plugin_failed` | plugin code failed during a lifecycle step or call, or an engine run started from a new generation failed the host's health check | HCS-0004, HCS-0008 |
 | `signature_invalid` | a signed catalog envelope or key set is unsigned, has a bad signature, does not meet its threshold, or has expired | HCS-0007 |
+| `generation_mismatch` | an ACP `session/load` asks to reopen a session on a generation other than the one it was created with | HCS-0008 |
 | `rollback_rejected` | a signed catalog envelope or key set is older than the last accepted one, or reuses its sequence or version with different content | HCS-0007 |
 
 The table is the single registry of HCS error codes. A profile that needs a new code adds a row here naming itself in the last column; it does not keep a code list of its own ([ADR-0014](../docs/adr/0014-profile-error-codes-join-the-core-registry.md)). A host that does not implement that profile never raises its codes.

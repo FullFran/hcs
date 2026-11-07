@@ -723,6 +723,41 @@
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
+      "id": "HCS-0008-R025",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "A host MUST start each engine run so that the engine reads its configuration, skills, extensions, prompts, MCP servers and credentials only from the projection and from host-owned settings, and nothing from user-global or workspace locations.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R026",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "A host MUST project a generation over ACP only to an agent whose `initialize` response advertises, in `agentCapabilities._meta[\"io.github.fullfran.hcs\"]`, an object whose `projection` member is `\"0.1\"`.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R027",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "A host that creates an engine run over ACP MUST send, in the `session/new` request, the generation's MCP servers in `mcpServers` and an object `_meta[\"io.github.fullfran.hcs\"].generation` with the generation's `id` and the absolute paths of its skill directories in `skills`, valid against the `sessionMeta` schema; the paths MUST lie inside the generation. An agent that advertises R026 MUST load skills only from those paths and from host-owned settings.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R028",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "An agent that advertises R026 MUST refuse a `session/load` whose `_meta[\"io.github.fullfran.hcs\"].generation.id` differs from the generation the session was created with, with a JSON-RPC error that carries an HCS error with code `generation_mismatch` (HCS-0006-R003). A host MUST NOT reopen a session on another generation; it starts a new session instead.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R029",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "An agent that advertises R026 MUST answer the request `_io.github.fullfran.hcs/loaded` (params `{ \"sessionId\": <id> }`) with the names of the skills and MCP servers the session loaded, valid against the `loadedResult` schema. A host that drives the engine over ACP MUST use that answer as the engine's report under R014.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
       "id": "HCS-0008-R013",
       "document": "HCS-0008",
       "keyword": "MUST NOT",

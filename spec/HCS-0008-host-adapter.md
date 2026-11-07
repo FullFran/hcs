@@ -7,6 +7,7 @@
 | Superseded when | a neutral body (for example an AAIF project) publishes an engine-neutral format for installing skills, MCP servers and instructions into an agent runtime, or MCP and Agent Skills define client-side installation; this document then profiles that format or is withdrawn |
 | Version | 0.1.0-draft |
 | Requires | HCS-0001, HCS-0003, HCS-0004, HCS-0005, HCS-0006 |
+| Schema | `schemas/hcs-0008/acp/v0.1/acp.schema.json` (`urn:hcs:schema:hcs-0008:acp:0.1`), section 6.8 |
 | Replaces | none |
 
 ## 1. Scope
@@ -142,6 +143,29 @@ A host-owned setting can be a guard on what reaches the model, for example a con
 
 The places that meet R019 are the model transport itself: a host-provided model provider or base URL that the projection sets as a host-owned setting (R007 keeps a contribution from moving it), or an egress proxy the engine cannot bypass. Engine hooks may add a second layer; they never replace it.
 
+### 6.7 No ambient configuration
+
+An engine that also reads the user's own configuration (a global settings directory, an extensions folder, a credentials file, a project's dot-files) runs with things the generation does not contain. Two runs of the same generation then differ by machine, and a host-owned setting can be overridden from outside the projection.
+
+**[HCS-0008-R025]** A host MUST start each engine run so that the engine reads its configuration, skills, extensions, prompts, MCP servers and credentials only from the projection and from host-owned settings, and nothing from user-global or workspace locations.
+
+Known ways to meet R025 are a private home directory and configuration directories for the run, an environment built from an allow-list, and engine switches that turn off discovery. The test is behavioural: with an empty home directory, the run loads everything it projected, and files planted in the user's or the workspace's configuration locations have no effect.
+
+### 6.8 Engines driven over ACP
+
+Some engines are not configured through files but driven over the Agent Client Protocol: the host is the ACP client and creates each engine run with `session/new`. ACP v1 carries `cwd`, `mcpServers` and `_meta`, but it has no way to pass skills, no identifier for what configuration a session was created from, and no notification of what the agent loaded ([docs/standards/acp.md](../docs/standards/acp.md)). This section defines an ACP extension under the HCS namespace `io.github.fullfran.hcs` (HCS-0000 section 7) for those three gaps. HCS proposes them to the ACP project; until ACP covers them, the extension is Provisional like this document ([ADR-0027](../docs/adr/0027-projection-over-acp.md)). The shapes are in `schemas/hcs-0008/acp/v0.1/acp.schema.json`.
+
+**[HCS-0008-R026]** A host MUST project a generation over ACP only to an agent whose `initialize` response advertises, in `agentCapabilities._meta["io.github.fullfran.hcs"]`, an object whose `projection` member is `"0.1"`.
+
+**[HCS-0008-R027]** A host that creates an engine run over ACP MUST send, in the `session/new` request, the generation's MCP servers in `mcpServers` and an object `_meta["io.github.fullfran.hcs"].generation` with the generation's `id` and the absolute paths of its skill directories in `skills`, valid against the `sessionMeta` schema; the paths MUST lie inside the generation. An agent that advertises R026 MUST load skills only from those paths and from host-owned settings.
+
+**[HCS-0008-R028]** An agent that advertises R026 MUST refuse a `session/load` whose `_meta["io.github.fullfran.hcs"].generation.id` differs from the generation the session was created with, with a JSON-RPC error that carries an HCS error with code `generation_mismatch` (HCS-0006-R003). A host MUST NOT reopen a session on another generation; it starts a new session instead.
+
+**[HCS-0008-R029]** An agent that advertises R026 MUST answer the request `_io.github.fullfran.hcs/loaded` (params `{ "sessionId": <id> }`) with the names of the skills and MCP servers the session loaded, valid against the `loadedResult` schema. A host that drives the engine over ACP MUST use that answer as the engine's report under R014.
+
+R028 follows from R001 and R002: a session's history, and any session-limited grants (HCS-0005-R006, R008), were created against one generation's code. Reopening it on another would apply them to code the person never saw. What an agent counts as a loaded MCP server is its own observation, for example that the connection completed or that the server's tools are listed. A server with no tools may be indistinguishable from one that did not start; HCS does not yet define a finer signal.
+
+
 ## 7. Confirm after health
 
 **[HCS-0008-R013]** A host MUST NOT confirm a generation until an engine run started from its projection has passed the host's health check within the host's deadline.
@@ -160,7 +184,7 @@ This is UAPI.1 boot counting with one try ([uapi-boot-counting.md](../docs/stand
 
 ## 8. Conformance
 
-`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008, R013 to R016, R019, R020 and R022 need a running engine and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009 and R018 are SHOULDs and have no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's.
+`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008, R013 to R016, R019, R020, R022, R025, R026 and R028 need a running engine and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009 and R018 are SHOULDs and have no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's.
 
 ## 9. Open questions
 
