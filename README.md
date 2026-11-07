@@ -49,6 +49,7 @@ with its JSON Schema and conformance fixtures.
 
 ## Current state
 
+- [docs/architecture.md](docs/architecture.md): how the documents fit together, with diagrams.
 - `docs/standards/`: pinned notes on every external standard HCS touches.
 - `spec/`: Draft HCS-0000 (conventions), HCS-0001 (catalog manifest),
   HCS-0002 (capability ids), HCS-0003 (resolution), HCS-0004 (lifecycle),
