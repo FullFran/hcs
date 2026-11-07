@@ -8,7 +8,7 @@ Two guards a host owns can leak in the same way. Research on an engine the first
 
 ## Decision
 
-- A guard on model requests sits on the model transport (a host-provided provider or base URL, or an egress proxy) so it sees every request of the run, the engine's own included (HCS-0008-R019). Engine hooks may add a second layer, never replace it.
+- A guard on model requests sits on the model transport (a host-provided provider or base URL, or an egress proxy) so it sees every request of the run, the engine's own included (HCS-0008-R019). ADR-0028 later made this a reachability property: a provider or base URL points the engine at the guard, and only network confinement guarantees that nothing bypasses it. Engine hooks may add a second layer, never replace it.
 - A guard that is unavailable or fails lets no request reach the provider (HCS-0008-R020).
 - An operation waiting for a person runs only on an explicit allow before the deadline; reject, timeout, ACP `cancelled`, a handler error and a lost connection all deny with `permission_denied` (HCS-0005-R014). The decision record says which (`deny`, `timeout`, `error`); the R014 host cases state the expected record for each.
 - Answers come only through the host's own channel to the person, never from model, tool or package text (HCS-0005-R015).

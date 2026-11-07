@@ -684,7 +684,7 @@
       "id": "HCS-0008-R030",
       "document": "HCS-0008",
       "keyword": "MUST",
-      "text": "An adapter MUST deliver each value of an MCP server input (environment variables, headers, arguments, URL variables) so that the server receives exactly the string that the `server.json` substitutions and the granted secrets produce, escaping it for the engine or passing it through a channel the engine does not interpret, and MUST report `unsupported_contribution` for an entry whose values it cannot deliver that way to that engine.",
+      "text": "An adapter MUST apply the `server.json` substitutions once, never to text a substitution inserted, and MUST deliver each resulting value or URL of an MCP server input (environment variables, headers, arguments, URL variables) so that the server receives exactly that string, escaping it for the engine or passing it through a channel the engine does not interpret. It MUST report `unsupported_contribution` for an entry with an input it cannot deliver that way to that engine; it decides this without reading secret values, treating a secret as an arbitrary string.",
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
@@ -719,7 +719,7 @@
       "id": "HCS-0008-R019",
       "document": "HCS-0008",
       "keyword": "MUST",
-      "text": "A host that declares a guard on model requests as a host-owned setting MUST run the engine so that no process of the run can reach a model provider except through that guard, including requests the engine makes for itself and requests from extensions or tools that build their own model clients, and MUST NOT count a hook inside the engine, or a wrapper around the engine's own provider object, as that guard.",
+      "text": "A host that declares a guard on model requests as a host-owned setting MUST run the engine so that no request from a process of the run (the engine, its extensions and tools, and the MCP servers the run starts) can leave toward a model provider except through that guard, which runs outside those processes, and MUST NOT count a hook inside the engine, or a wrapper around the engine's own provider object, as that guard.",
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {

@@ -11,11 +11,11 @@ The first host found two leaks while moving to an engine it drives over ACP.
 
 ## Decision
 
-- **R030:** the server receives exactly the string that the `server.json` substitutions (`{name}` from `variables`) and the granted secrets produce. The adapter escapes values for the engine, or uses a channel the engine does not interpret, or reports `unsupported_contribution`. HCS profiles the substitution `server.json` already defines and forbids a second, engine-specific one; it invents no templating. Appendix A records, per engine, what it interprets and how to escape it. Precedent: Kubernetes `env` defines `$(VAR)` expansion together with `$$` as its escape, and Compose does the same, so the interpretation belongs to the documented format and always has a way out.
-- **R019, rewritten as a reachability property:** no process of the run can reach a model provider except through the guard, including extensions and tools that build their own clients. A hook or a wrapper around the session's provider object never counts. Two mechanisms are known to meet it, and a host uses at least one:
-  - **Credential confinement:** only the guard holds provider keys. The first host proved it.
-  - **Network confinement:** default-deny egress with the guard as the only allowed destination. Precedents: Kubernetes `NetworkPolicy`, the OpenSandbox egress API.
-  The guard's own provider or base URL remains how the engine is pointed at the guard; on its own it is not enough.
+- **R030:** the server receives exactly the string that the `server.json` substitutions and the granted secrets produce. Those substitutions are `{name}` in input values from `variables`, and `{name}` in transport URLs. They are applied once and never to inserted text, so a secret containing braces is not substituted again. An adapter decides whether it can deliver an input without reading secret values. The adapter escapes values for the engine, or uses a channel the engine does not interpret, or reports `unsupported_contribution`. HCS profiles the substitution `server.json` already defines and forbids a second, engine-specific one; it invents no templating. Appendix A records, per engine, what it interprets and how to escape it. Precedent: Kubernetes `env` defines `$(VAR)` expansion together with `$$` as its escape, and Compose does the same, so the interpretation belongs to the documented format and always has a way out.
+- **R019, rewritten as a reachability property:** no request from a process of the run (the engine, its extensions and tools, the MCP servers it starts) can leave toward a model provider except through the guard, which runs outside those processes. A hook or a wrapper around the session's provider object never counts.
+  - **Network confinement** meets the property: default-deny egress with the guard as the only allowed destination (precedents: Kubernetes `NetworkPolicy`, the OpenSandbox egress API).
+  - **Credential confinement** alone does not. A bypassing request fails at the provider only after its body has been delivered, which for a masking guard is the leak. It stays a second layer. The first host has proven credential confinement only, so network confinement is the gap it has to close before claiming R019.
+  - The guard's own provider or base URL is how the engine is pointed at the guard; it confines nothing.
 
 ## Consequences
 

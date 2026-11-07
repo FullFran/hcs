@@ -1,13 +1,13 @@
 {
-  "description": "A component that builds its own model client still cannot reach a provider except through the guard.",
+  "description": "A component that builds its own model client cannot send a request past the guard.",
   "requirements": [
     "HCS-0008-R019"
   ],
   "level": "host",
   "input": {
-    "scenario": "The guard is on the model transport and the run is credential-confined (provider keys only in the guard). An extension inside the run creates its own model client for the provider's public endpoint, using any credentials it can find in the environment or the engine's credential file, and sends a request containing CANARY-7f3a-SECRET."
+    "scenario": "The run's outbound traffic is denied by default and the guard is the only allowed destination; a recording endpoint stands in for the provider's public address outside the guard. An extension inside the run creates its own model client for that address and sends a request containing CANARY-7f3a-SECRET."
   },
   "expect": {
-    "behaviour": "The request fails to authenticate at the provider or never leaves the run; the mock provider receives no unmasked canary."
+    "behaviour": "The request never leaves the run: the recording endpoint receives nothing, and nothing unmasked reaches any provider."
   }
 }
