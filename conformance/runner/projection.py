@@ -5,11 +5,14 @@ Input (case `input`):
                     entries in activation order.
   contribution:     {"kind": str, ...}
                     skill:       "name" (the Agent Skills name read from SKILL.md)
-                    mcp-server:  "descriptor" (the server.json document at `path`)
+                    mcp-server:  "descriptor" (the server.json document at `path`); for a `file` package,
+                                 "files": regular files in the contribution's directory, relative to it
                     other kinds: "settings": [{"name": str, "effect": "add"|"replace"|"remove"|"widen"|"narrow"}]
   projectableKinds: kinds the adapter can project into its engine.
   hostOwned:        engine-level names of host-owned settings.
   grantedSecrets:   {entry id: [input name, ...]} secrets the host grants per entry.
+  hostRuntimes:     {runtimeHint: [control environment variable names]} for each runtime the host provides
+                    (HCS-0008-R023); a package may not set those variables.
   activationPolicy: "all-or-nothing" | "partial" (HCS-0003 step 6).
 
 Output: {"errors": [HCS-0006 errors with entry], "selected": [entry ids the host may report active]}.
@@ -22,7 +25,11 @@ The server.json check covers the members the schema requires and the HCS-0008-R0
 full validation against the MCP Registry schema is the adapter's job (HCS-0008 section 8).
 """
 
+import re
+
 SERVER_REQUIRED = ("name", "description", "version")
+# HCS-0001-R005 relative path (no leading '/', no backslash, no '..' segment) plus no empty segment (R021)
+RELATIVE_PATH = re.compile(r"(?!/)(?!.*\\)(?!(.*/)?\.\.(/|\Z))(?!.*//)(?!.*/\Z)[^\x00]+", re.S)
 OVERRIDING = {"add", "replace"}
 FORBIDDEN_ON_HOST_OWNED = {"add", "replace", "remove", "widen"}
 
@@ -31,36 +38,79 @@ def _err(code, entry):
     return {"code": code, "entry": entry}
 
 
+def _with_variables(name, item):
+    """An Input and the Inputs in its `variables` (InputWithVariables in the 2025-12-11 schema)."""
+    yield name, item
+    for vname, var in (item.get("variables") or {}).items():
+        yield vname, var
+
+
 def _inputs(descriptor):
-    """Yield (name, input) for every Input of a server.json document."""
+    """Yield (name, input) for every Input of a server.json document, variables included."""
     for package in descriptor.get("packages") or []:
         for key in ("environmentVariables", "runtimeArguments", "packageArguments"):
             for item in package.get(key) or []:
-                yield item.get("name") or item.get("valueHint"), item
+                yield from _with_variables(item.get("name") or item.get("valueHint"), item)
     for remote in descriptor.get("remotes") or []:
         for item in remote.get("headers") or []:
-            yield item.get("name"), item
+            yield from _with_variables(item.get("name"), item)
         for name, item in (remote.get("variables") or {}).items():
             yield name, item
 
 
 def _check_descriptor(entry, descriptor, granted):
-    """HCS-0008-R010 (required members), R011 (no secret values), R012 (secrets come from grants)."""
+    """HCS-0008-R010 (required members) and R011 (no secret values)."""
     if not isinstance(descriptor, dict) or any(not isinstance(descriptor.get(k), str) for k in SERVER_REQUIRED):
         return [_err("manifest_invalid", entry)], None
     for _, item in _inputs(descriptor):
         if item.get("isSecret") and ("value" in item or "default" in item):
             return [_err("manifest_invalid", entry)], None
+    return [], descriptor["name"]
+
+
+def _check_grants(entry, descriptor, granted):
+    """HCS-0008-R012, reported after the shape and startability checks (section 6.4.1 order)."""
     for name, item in _inputs(descriptor):
         if item.get("isSecret") and item.get("isRequired") and name not in granted:
-            return [_err("permission_denied", entry)], None
-    return [], descriptor["name"]
+            return [_err("permission_denied", entry)]
+    return []
+
+
+def _check_file_package(entry, descriptor, files, runtimes):
+    """HCS-0008-R021 (shape, manifest_invalid), then R024 and R023 (unsupported_contribution).
+    Returns (code or None). Links that resolve outside the folder are a host-level case."""
+    packages = [p for p in descriptor.get("packages") or [] if p.get("registryType") == "file"]
+    if not packages:
+        return None
+    if len(packages) > 1:
+        return "manifest_invalid"
+    pkg = packages[0]
+    ident = pkg.get("identifier")
+    transport = pkg.get("transport")
+    if not isinstance(transport, dict) or transport.get("type") != "stdio" or not isinstance(ident, str) \
+            or not RELATIVE_PATH.fullmatch(ident) or _normalise(ident) not in files:
+        return "manifest_invalid"
+    args = [a for key in ("packageArguments", "runtimeArguments") for a in pkg.get(key) or []]
+    if any(v.get("isSecret") for a in args for _, v in _with_variables(None, a)):
+        return "unsupported_contribution"                   # R024: secrets only through the environment
+    hint = pkg.get("runtimeHint")
+    control = runtimes.get(hint) if isinstance(hint, str) else None
+    env_names = {e.get("name") for e in pkg.get("environmentVariables") or []}
+    if control is None or pkg.get("runtimeArguments") or env_names & set(control):
+        return "unsupported_contribution"                   # R023: the host owns the runtime and its flags
+    return None
+
+
+def _normalise(path):
+    """Remove '.' segments (HCS-0008-R021); '..' and empty segments are already refused."""
+    return "/".join(seg for seg in path.split("/") if seg != ".")
 
 
 def project(inp):
     projectable = set(inp.get("projectableKinds", []))
     host_owned = set(inp.get("hostOwned", []))
     grants = inp.get("grantedSecrets", {})
+    runtimes = inp.get("hostRuntimes", {})
     entries = inp["generation"]["entries"]
     errors, failed, unprojected, claims = [], set(), set(), {}
 
@@ -88,6 +138,17 @@ def project(inp):
                 if errs:
                     for e in errs:
                         fail(e["code"], eid)
+                    continue
+                code = _check_file_package(eid, c["descriptor"], set(c.get("files", [])), runtimes)
+                if code == "manifest_invalid":
+                    fail(code, eid)
+                    continue
+                if code == "unsupported_contribution":
+                    report_unsupported(eid)
+                    continue
+                denied = _check_grants(eid, c["descriptor"], set(grants.get(eid, [])))
+                if denied:
+                    fail("permission_denied", eid)
                     continue
                 settings = [{"name": "mcp/" + name, "effect": "add"}]
             else:
