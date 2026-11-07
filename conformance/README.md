@@ -10,6 +10,7 @@ Cases are data (`case.schema.json`), one file per case, in `cases/<document>/<re
 | `authority` | yes | the HCS-0005 evaluation: grants, stored denials (a matching denial wins) and session limits |
 | `distribution` | yes | HCS-0007: signature input, key set and envelope verification with fixture keys and a stated clock |
 | `projection` | yes | HCS-0008: the reference projection of a generation (`runner/projection.py`): errors per entry and the entries the host may report active |
+| `client` | yes | HCS-0006-R006: the HCS error a client extracts from a JSON-RPC response (`input.response`) or an RFC 9457 problem (`input.problem`); `expect.hcsError` is the error or `null`. Client test suites can run the same fixtures against their own parser |
 | `host` | no, reported `pending` | a scenario and expected behaviour that needs a running host |
 
 ## Run

@@ -42,7 +42,7 @@ A grant or denial **matches** a check when `entry` and `permission` are equal an
 
 **[HCS-0005-R004]** A host MUST NOT let an extension member on a request turn the request into a grant.
 
-R001, R002, R004, R007 and R008 are checked by the reference evaluator in the runner (`authority` cases); the evaluator has no input for a one-operation answer, which is checked by `host` cases (R005). R003 needs a running host and has `host` cases only.
+R001, R002, R004, R007 and R008 are checked by the reference evaluator in the runner (`authority` cases); the evaluator has no input for a one-operation answer, which is checked by `host` cases (R005). R003, R005, R006, R009, R010, R012, R014 and R015 need a running host and have `host` cases only.
 
 ### 3.2 Answers from a person
 
@@ -60,7 +60,15 @@ A host that stores session-limited answers gives every check made inside a sessi
 
 **[HCS-0005-R009]** A host MUST NOT let the engine or the client keep an "always" answer where the host cannot revoke it; an operation the host has not decided under section 3.1 or 3.2 MUST be denied even if the engine or client remembers an earlier answer.
 
-A host that cannot meet R009 with a given engine does not offer the `allow_always` and `reject_always` options on that engine. Whether some permissions refuse "always" answers entirely is issue #16; what happens when no answer arrives is issue #31.
+A host that cannot meet R009 with a given engine does not offer the `allow_always` and `reject_always` options on that engine. Whether some permissions refuse "always" answers entirely is issue #16.
+
+An approval path fails open easily: engines commonly block a tool call when a pre-call hook throws but let other hooks continue on error, and a closed dialog or a lost connection leaves the call waiting on nobody. Only an explicit allow lets the operation through ([ADR-0025](../docs/adr/0025-host-guards-fail-closed.md)).
+
+**[HCS-0005-R014]** A host MUST NOT run an operation that waits for a person's answer unless an `allow_once` or `allow_always` answer for that operation arrives before the host's deadline. A reject answer, the deadline passing, an ACP `cancelled` outcome, an error in the host's approval handling and a lost connection to the person MUST each deny the operation with `permission_denied`.
+
+**[HCS-0005-R015]** A host MUST take a person's answer only from its own channel to that person (for example the ACP client connection), never from text the model, a tool or a package produced.
+
+The decision record of an operation denied under R014 has `outcome` `deny` for a reject answer or an ACP `cancelled` outcome, `timeout` when the deadline passed and `error` when the approval handling failed or the connection was lost. Its `decider` is `{ "kind": "subject", ... }` when a person chose an option, and `{ "kind": "policy", "id": "HCS-0005-R014" }` otherwise; `cancelled` is not an `answer`.
 
 ### 3.3 Decision records
 

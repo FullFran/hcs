@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""HCS reference conformance runner (document, integrity, resolution, authority, distribution and projection levels).
+"""HCS reference conformance runner (document, integrity, resolution, authority, distribution, projection and client levels).
 
 Usage:
   python3 conformance/runner/run.py [--report PATH] [--selftest] [-v]
 
 It validates every case in conformance/cases against conformance/case.schema.json, executes
-document/integrity/resolution/authority/distribution/projection cases with the reference semantics below
+document/integrity/resolution/authority/distribution/projection/client cases with the reference semantics below
 (distribution: HCS-0007, implemented in distro1.py; projection: HCS-0008, in projection.py), reports host
 cases as pending, and enforces HCS-0000-R001/R002 (case coverage) against
 requirements/requirements.json. Exit code 0 only when every executed case passes and coverage holds.
@@ -229,6 +229,23 @@ def evaluate(inp):
                                       "message": f"{chk['entry']} has no grant for {chk['permission']}"}}
 
 
+# ---------- client level (HCS-0006-R006) ----------
+
+def extract_hcs_error(inp):
+    """The HCS error a client takes from a response, or None. Only hcsError counts, never other members."""
+    if "problem" in inp:
+        problem = inp["problem"]
+        hcs = problem.get("hcsError")
+        # only hcsError and type count; other members of the wrong type are ignored (RFC 9457 section 3.1)
+        if schema_valid(ERROR, hcs) and problem.get("type") == "urn:hcs:error:" + hcs["code"]:
+            return hcs
+        return None
+    response = inp["response"]
+    if schema_valid(ERROR + "#/$defs/jsonrpcErrorResponse", response):
+        return response["error"]["data"]["hcsError"]
+    return None
+
+
 # ---------- distribution level (HCS-0007) ----------
 
 def run_distribution(inp):
@@ -295,6 +312,9 @@ def run_case(case):
         ok = got["allow"] == exp["decision"]["allow"] and (
             got["allow"] or got["error"]["code"] == exp["decision"]["error"]["code"])
         return ("pass" if ok else "fail"), got
+    if level == "client":
+        got = extract_hcs_error(inp)
+        return ("pass" if got == exp["hcsError"] else "fail"), got
     if level == "projection":
         got = projection.project(inp)
         ok = norm(got["errors"]) == norm(exp["errors"]) and got["selected"] == exp["selected"]
