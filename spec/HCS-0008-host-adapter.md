@@ -141,7 +141,7 @@ This is UAPI.1 boot counting with one try ([uapi-boot-counting.md](../docs/stand
 
 ## 8. Conformance
 
-`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008 and R013 to R016 need a running engine and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009 and R018 are SHOULDs and have no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's.
+`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008, R013 to R016, R019 and R020 need a running engine and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009 and R018 are SHOULDs and have no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's.
 
 ## 9. Open questions
 

@@ -80,9 +80,11 @@ The numeric `error.code` is whatever the carrying protocol prescribes for the si
 
 A client that reads the wrong member gets the wrong answer and can still pass its own tests: the first host's server put the HCS error in an extension member, its client read a top-level `reason`, and the client's unit test passed because it used a hand-written fake with the same wrong shape. Every enrolled machine would have reported "nothing published yet" as a sync failure; only an end-to-end run against the real server caught it.
 
-**[HCS-0006-R006]** A client MUST take an HCS error only from `error.data.hcsError` of a JSON-RPC 2.0 error response or from the `hcsError` member of an RFC 9457 problem details object, and MUST NOT derive an HCS code from any other member (for example a top-level `code`, `reason` or `title`). A response whose `hcsError` is missing or fails the HCS-0006 schema, or a problem whose `type` does not equal `urn:hcs:error:<hcsError.code>`, carries no HCS error.
+**[HCS-0006-R006]** A client MUST take an HCS error only from `error.data.hcsError` of a JSON-RPC 2.0 error response or from the `hcsError` member of an RFC 9457 problem details object, and MUST NOT derive an HCS code from any other member (for example a top-level `code`, `reason` or `title`). A response whose `hcsError` is missing or fails the HCS-0006 schema, or a problem whose `type` does not equal `urn:hcs:error:<hcsError.code>`, carries no HCS error. Other members of a problem with the wrong type (for example a string `status`) are ignored, as RFC 9457 section 3.1 says, and do not affect the HCS error.
 
 `client` cases give the response a client receives and the HCS error it must extract, or `null` when there is none. A client's tests should build their fake server responses from these fixtures (or from responses recorded from the real server), never from hand-written objects, so the fake cannot share the client's mistake.
+
+Because the set of codes is closed (R002), a client that implements this version reads a code added by a later version as "no HCS error" and handles the response as a generic failure.
 
 ## 5. Open questions
 

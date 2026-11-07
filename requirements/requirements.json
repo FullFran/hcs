@@ -439,7 +439,7 @@
       "id": "HCS-0006-R006",
       "document": "HCS-0006",
       "keyword": "MUST",
-      "text": "A client MUST take an HCS error only from `error.data.hcsError` of a JSON-RPC 2.0 error response or from the `hcsError` member of an RFC 9457 problem details object, and MUST NOT derive an HCS code from any other member (for example a top-level `code`, `reason` or `title`). A response whose `hcsError` is missing or fails the HCS-0006 schema, or a problem whose `type` does not equal `urn:hcs:error:<hcsError.code>`, carries no HCS error.",
+      "text": "A client MUST take an HCS error only from `error.data.hcsError` of a JSON-RPC 2.0 error response or from the `hcsError` member of an RFC 9457 problem details object, and MUST NOT derive an HCS code from any other member (for example a top-level `code`, `reason` or `title`). A response whose `hcsError` is missing or fails the HCS-0006 schema, or a problem whose `type` does not equal `urn:hcs:error:<hcsError.code>`, carries no HCS error. Other members of a problem with the wrong type (for example a string `status`) are ignored, as RFC 9457 section 3.1 says, and do not affect the HCS error.",
       "source": "spec/HCS-0006-errors.md"
     },
     {

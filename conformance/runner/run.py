@@ -235,8 +235,10 @@ def extract_hcs_error(inp):
     """The HCS error a client takes from a response, or None. Only hcsError counts, never other members."""
     if "problem" in inp:
         problem = inp["problem"]
-        if not check_document(ERROR + "#/$defs/problemDetails", problem):  # schema + type/code equality
-            return problem["hcsError"]
+        hcs = problem.get("hcsError")
+        # only hcsError and type count; other members of the wrong type are ignored (RFC 9457 section 3.1)
+        if schema_valid(ERROR, hcs) and problem.get("type") == "urn:hcs:error:" + hcs["code"]:
+            return hcs
         return None
     response = inp["response"]
     if schema_valid(ERROR + "#/$defs/jsonrpcErrorResponse", response):

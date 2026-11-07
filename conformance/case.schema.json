@@ -51,7 +51,7 @@
     { "if": { "properties": { "level": { "const": "authority" } } }, "then": { "properties": { "expect": { "required": ["decision"] } } } },
     { "if": { "properties": { "level": { "const": "distribution" } } }, "then": { "properties": { "expect": { "anyOf": [{ "required": ["outcome"] }, { "required": ["signingInput"] }] } } } },
     { "if": { "properties": { "level": { "const": "projection" } } }, "then": { "properties": { "expect": { "required": ["errors", "selected"] } } } },
-    { "if": { "properties": { "level": { "const": "client" } } }, "then": { "properties": { "expect": { "required": ["hcsError"] } } } },
+    { "if": { "properties": { "level": { "const": "client" } } }, "then": { "properties": { "input": { "type": "object", "oneOf": [{ "required": ["problem"], "not": { "required": ["response"] } }, { "required": ["response"], "not": { "required": ["problem"] } }] }, "expect": { "required": ["hcsError"] } } } },
     { "if": { "properties": { "level": { "const": "host" } } }, "then": { "properties": { "expect": { "required": ["behaviour"] } } } }
   ]
 }

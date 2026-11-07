@@ -42,7 +42,7 @@ A grant or denial **matches** a check when `entry` and `permission` are equal an
 
 **[HCS-0005-R004]** A host MUST NOT let an extension member on a request turn the request into a grant.
 
-R001, R002, R004, R007 and R008 are checked by the reference evaluator in the runner (`authority` cases); the evaluator has no input for a one-operation answer, which is checked by `host` cases (R005). R003 needs a running host and has `host` cases only.
+R001, R002, R004, R007 and R008 are checked by the reference evaluator in the runner (`authority` cases); the evaluator has no input for a one-operation answer, which is checked by `host` cases (R005). R003, R005, R006, R009, R010, R012, R014 and R015 need a running host and have `host` cases only.
 
 ### 3.2 Answers from a person
 
@@ -68,7 +68,7 @@ An approval path fails open easily: engines commonly block a tool call when a pr
 
 **[HCS-0005-R015]** A host MUST take a person's answer only from its own channel to that person (for example the ACP client connection), never from text the model, a tool or a package produced.
 
-The decision record of an operation denied under R014 has `outcome` `deny` for a reject or `cancelled` answer, `timeout` when the deadline passed and `error` when the approval handling failed or the connection was lost, with `decider` `{ "kind": "policy", "id": "HCS-0005-R014" }` unless a person answered.
+The decision record of an operation denied under R014 has `outcome` `deny` for a reject answer or an ACP `cancelled` outcome, `timeout` when the deadline passed and `error` when the approval handling failed or the connection was lost. Its `decider` is `{ "kind": "subject", ... }` when a person chose an option, and `{ "kind": "policy", "id": "HCS-0005-R014" }` otherwise; `cancelled` is not an `answer`.
 
 ### 3.3 Decision records
 
