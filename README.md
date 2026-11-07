@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" alt="hcs logo" width="120" height="120"></p>
+
 # HCS · Harness Composition Specification
 
 **Status:** draft, pre-0.1. Pre-releases are tagged `v0.1.0-draft.N`.
