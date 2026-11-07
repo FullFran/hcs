@@ -113,6 +113,16 @@ Inputs are environment variables, headers, arguments and URL variables (`KeyValu
 
 HCS-0001 defines two core kinds, `skill` and `mcp-server`. Instruction files, agent definitions, commands and policies are extension kinds of the distribution (`x-<distribution>-...`) until a second harness needs them in core (README rule 1, [ADR-0018](../docs/adr/0018-instructions-and-policies-stay-extension-kinds.md)). R003 to R007 apply to them unchanged: the adapter projects them or reports them, and they never override a host-owned setting. A distribution that ships instruction contributions SHOULD use plain Markdown in the AGENTS.md convention and define no structure inside the file. A policy contribution is a narrowing (section 6.2): it can only make a host-owned permission stricter.
 
+### 6.6 Guards on the model transport
+
+A host-owned setting can be a guard on what reaches the model, for example a content-safety proxy that masks personal data. Placing it in an engine's message hooks does not cover every request: engines commonly let a hook that throws continue with the unmodified data, and they send model requests of their own (context compaction, branch summaries, cache warming) that never pass through those hooks. All of them pass through the engine's model transport ([ADR-0025](../docs/adr/0025-host-guards-fail-closed.md)).
+
+**[HCS-0008-R019]** A host that declares a guard on model requests as a host-owned setting MUST place it where every model request of an engine run passes through it, including the requests the engine makes for itself, and MUST NOT count a hook inside the engine as that guard.
+
+**[HCS-0008-R020]** When such a guard is unavailable or fails on a request, a host MUST ensure that the request does not reach the model provider.
+
+The places that meet R019 are the model transport itself: a host-provided model provider or base URL that the projection sets as a host-owned setting (R007 keeps a contribution from moving it), or an egress proxy the engine cannot bypass. Engine hooks may add a second layer; they never replace it.
+
 ## 7. Confirm after health
 
 **[HCS-0008-R013]** A host MUST NOT confirm a generation until an engine run started from its projection has passed the host's health check within the host's deadline.

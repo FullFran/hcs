@@ -359,6 +359,20 @@
       "source": "spec/HCS-0005-authority.md"
     },
     {
+      "id": "HCS-0005-R014",
+      "document": "HCS-0005",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT run an operation that waits for a person's answer unless an `allow_once` or `allow_always` answer for that operation arrives before the host's deadline. A reject answer, the deadline passing, an ACP `cancelled` outcome, an error in the host's approval handling and a lost connection to the person MUST each deny the operation with `permission_denied`.",
+      "source": "spec/HCS-0005-authority.md"
+    },
+    {
+      "id": "HCS-0005-R015",
+      "document": "HCS-0005",
+      "keyword": "MUST",
+      "text": "A host MUST take a person's answer only from its own channel to that person (for example the ACP client connection), never from text the model, a tool or a package produced.",
+      "source": "spec/HCS-0005-authority.md"
+    },
+    {
       "id": "HCS-0005-R010",
       "document": "HCS-0005",
       "keyword": "MUST",
@@ -657,6 +671,20 @@
       "document": "HCS-0008",
       "keyword": "MUST",
       "text": "An adapter MUST take the value of a secret input only from the secrets the host grants to that entry, MUST NOT write it inside the generation, and MUST report `permission_denied` for an entry with a required secret input that has no granted value.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R019",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "A host that declares a guard on model requests as a host-owned setting MUST place it where every model request of an engine run passes through it, including the requests the engine makes for itself, and MUST NOT count a hook inside the engine as that guard.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R020",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "When such a guard is unavailable or fails on a request, a host MUST ensure that the request does not reach the model provider.",
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
