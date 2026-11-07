@@ -13,7 +13,7 @@
           {
             "permission": "dev.example.fs.read",
             "reason": "read notes",
-            "x-hagaharness-ui-hint": "files"
+            "x-example-ui-hint": "files"
           }
         ]
       }

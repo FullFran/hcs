@@ -20,7 +20,7 @@
             "path": "skills/notes"
           }
         ],
-        "x-hagaharness-skip-integrity": true
+        "x-example-skip-integrity": true
       }
     ]
   },

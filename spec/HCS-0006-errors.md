@@ -20,7 +20,7 @@ A host that composes plugins fails in a small number of ways that callers need t
   "message": "dev.example.notes requires dev.example.search@1, which no entry provides",
   "entry": "dev.example.notes",
   "capability": "dev.example.search@1",
-  "details": { "x-hagaharness-hint": "enable the search pack" }
+  "details": { "x-example-hint": "enable the search pack" }
 }
 ```
 

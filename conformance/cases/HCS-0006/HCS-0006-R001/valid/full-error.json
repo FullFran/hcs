@@ -12,7 +12,7 @@
     "capability": "dev.example.search@1",
     "requirement": "HCS-0003-R002",
     "details": {
-      "x-hagaharness-hint": "enable search"
+      "x-example-hint": "enable search"
     }
   },
   "expect": {

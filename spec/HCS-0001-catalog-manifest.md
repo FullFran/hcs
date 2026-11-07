@@ -35,7 +35,7 @@ Out of scope here: signing, freshness and rollback protection of the manifest (D
       ],
       "requires": ["dev.example.search@1"],
       "compatibility": { "platforms": [{ "os": "linux", "architecture": "amd64" }] },
-      "x-hagaharness-channel": "stable"
+      "x-example-channel": "stable"
     }
   ]
 }
@@ -81,7 +81,7 @@ Core kinds reference external standards and do not restate them:
 
 - `skill`: `path` names a directory that is an Agent Skill (a `SKILL.md` with frontmatter), as defined by the Agent Skills specification at the revision pinned in [docs/standards/agent-skills.md](../docs/standards/agent-skills.md). Its `allowed-tools` field is a request, never a grant (HCS-0005).
 - `mcp-server`: `path` names an MCP server shipped in the package. How it is launched and which MCP revision it speaks are defined by the TOOLS-1 profile, not by HCS-0001 ([docs/standards/mcp.md](../docs/standards/mcp.md)).
-- A distribution adds kinds as extension names (for example `x-hagaharness-theme`).
+- A distribution adds kinds as extension names (for example `x-example-theme`).
 
 ### 3.3 Compatibility
 

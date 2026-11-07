@@ -18,7 +18,7 @@
         "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
         "contributions": [
           {
-            "kind": "x-hagaharness-theme",
+            "kind": "x-example-theme",
             "path": "skills/theme"
           }
         ]

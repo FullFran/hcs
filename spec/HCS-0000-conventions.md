@@ -52,7 +52,7 @@ A document that defines something no existing standard covers carries, besides i
 
 Distributions extend HCS documents only through extension members.
 
-- An extension member name matches `^x-[a-z0-9]+(-[a-z0-9]+)*$`; the first segment after `x-` names the distribution (for example `x-hagaharness` or `x-hagaharness-trust`).
+- An extension member name matches `^x-[a-z0-9]+(-[a-z0-9]+)*$`; the first segment after `x-` names the distribution (for example `x-example` or `x-example-trust`).
 - HCS schemas reject unknown members that are not extension members (`additionalProperties: false` plus `patternProperties` for `^x-`).
 
 **[HCS-0000-R003]** A host MUST NOT reject a document because it contains extension members it does not understand.
