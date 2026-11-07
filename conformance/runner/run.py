@@ -215,7 +215,15 @@ def evaluate(inp):
     if not schema_valid(AUTHORITY + "#/$defs/evaluationInput", inp):
         raise ValueError("authority input does not match its schema")
     chk = inp["check"]
-    if any(g["entry"] == chk["entry"] and g["permission"] == chk["permission"] for g in inp["grants"]):
+
+    def matches(stored):  # HCS-0005 section 2; a session-limited record matches only its session (R008)
+        return stored["entry"] == chk["entry"] and stored["permission"] == chk["permission"] and (
+            "session" not in stored or stored["session"] == chk.get("session"))
+
+    if any(matches(d) for d in inp.get("denials", [])):  # a matching denial wins (R007)
+        return {"allow": False, "error": {"code": "permission_denied", "entry": chk["entry"],
+                                          "message": f"{chk['entry']} has a stored denial for {chk['permission']}"}}
+    if any(matches(g) for g in inp["grants"]):
         return {"allow": True}
     return {"allow": False, "error": {"code": "permission_denied", "entry": chk["entry"],
                                       "message": f"{chk['entry']} has no grant for {chk['permission']}"}}

@@ -26,24 +26,63 @@
       "patternProperties": { "^x-[a-z0-9]+(-[a-z0-9]+)*$": true },
       "additionalProperties": false
     },
+    "identifier": { "type": "string", "minLength": 1, "maxLength": 256 },
     "grant": {
+      "description": "A grant held by the host. With `session`, it matches only checks from that session (HCS-0005-R008).",
       "type": "object",
       "required": ["entry", "permission"],
       "properties": {
         "entry": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/packageId" },
-        "permission": { "$ref": "#/$defs/permissionId" }
+        "permission": { "$ref": "#/$defs/permissionId" },
+        "id": { "$ref": "#/$defs/identifier" },
+        "session": { "$ref": "#/$defs/identifier" },
+        "origin": { "$ref": "#/$defs/identifier" }
       },
       "patternProperties": { "^x-[a-z0-9]+(-[a-z0-9]+)*$": true },
       "additionalProperties": false
+    },
+    "denial": {
+      "description": "A stored denial, created by a reject_always answer (HCS-0005-R007). A matching denial wins over a matching grant.",
+      "$ref": "#/$defs/grant"
     },
     "check": {
       "type": "object",
       "required": ["entry", "permission"],
       "properties": {
         "entry": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/packageId" },
-        "permission": { "$ref": "#/$defs/permissionId" }
+        "permission": { "$ref": "#/$defs/permissionId" },
+        "session": { "$ref": "#/$defs/identifier" }
       },
       "additionalProperties": false
+    },
+    "decisionRecord": {
+      "description": "What a host writes for each permission decision it acts on (HCS-0005 section 3.3). It never holds operation arguments, results or conversation content (HCS-0005-R011).",
+      "type": "object",
+      "required": ["id", "time", "entry", "permission", "outcome", "decider", "channel"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "time": { "description": "RFC 3339 UTC, same pattern as HCS-0007 timestamp.", "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,9})?Z$" },
+        "entry": { "$ref": "urn:hcs:schema:hcs-0001:catalog-manifest:0.1#/$defs/packageId" },
+        "permission": { "$ref": "#/$defs/permissionId" },
+        "outcome": { "enum": ["allow", "deny", "timeout", "error", "revoked"] },
+        "operation": { "$ref": "#/$defs/identifier" },
+        "session": { "$ref": "#/$defs/identifier" },
+        "decider": {
+          "type": "object",
+          "required": ["kind", "id"],
+          "properties": {
+            "kind": { "enum": ["subject", "grant", "denial", "policy"] },
+            "id": { "$ref": "#/$defs/identifier" }
+          },
+          "additionalProperties": false
+        },
+        "channel": { "$ref": "#/$defs/identifier" },
+        "answer": { "enum": ["allow_once", "allow_always", "reject_once", "reject_always"] }
+      },
+      "patternProperties": { "^x-[a-z0-9]+(-[a-z0-9]+)*$": true },
+      "additionalProperties": false,
+      "if": { "properties": { "outcome": { "const": "revoked" } } },
+      "else": { "required": ["operation"] }
     },
     "decision": {
       "oneOf": [
@@ -76,6 +115,7 @@
       "properties": {
         "requests": { "type": "array", "items": { "$ref": "#/$defs/requestDocument" } },
         "grants": { "type": "array", "items": { "$ref": "#/$defs/grant" } },
+        "denials": { "type": "array", "items": { "$ref": "#/$defs/denial" } },
         "check": { "$ref": "#/$defs/check" }
       },
       "additionalProperties": false
