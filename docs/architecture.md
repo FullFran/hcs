@@ -241,6 +241,26 @@ A contribution with the same name as a **host-provided default** (for example a
 bundled skill) replaces it; that is not a collision. A contribution may
 **narrow** a host-owned setting, never widen it.
 
+A guard on model requests (for example a content-safety proxy) is a host-owned
+setting placed on the model transport, not in engine hooks, so the engine's own
+requests (compaction, summaries) pass through it; if it fails, nothing reaches
+the provider (HCS-0008-R019, R020).
+
+```mermaid
+flowchart LR
+    subgraph Engine["Engine run"]
+        turn["agent turn"]
+        own["engine's own requests<br/>compaction, summaries"]
+        hooks["message hooks<br/>(may fail open)"]
+        turn --> hooks
+    end
+    guard{{"host guard on model transport<br/>provider / base URL / egress proxy"}}
+    hooks --> guard
+    own --> guard
+    guard -->|masked| model["model provider"]
+    guard -.->|guard down: nothing leaves| x(("✕"))
+```
+
 ## 8. Confirm after health (HCS-0008 section 7)
 
 Boot counting with one try: a new generation is unconfirmed until the running
@@ -275,23 +295,39 @@ sequenceDiagram
     participant G as Host grants
     participant PDP as Policy engine (optional, e.g. OPA)
 
+    participant U as Person (ACP client)
+    participant R as Decision records
+
     P-->>H: requests [{permission, reason}] (declared, not granted)
-    Note over H,G: operator or host policy writes grants<br/>{entry, permission}
+    Note over H,G: operator or host policy writes grants<br/>{entry, permission, session?}
     P->>H: operation needing a permission
-    H->>G: check {entry, permission}
+    H->>G: check {entry, permission, session}
     opt host delegates the decision
         H->>PDP: check
         PDP-->>H: allow / deny
     end
-    alt granted
+    alt matching denial
+        H-->>P: permission_denied (R007)
+    else matching grant
         H-->>P: run operation
-    else not granted
-        H-->>P: permission_denied (HCS-0006)
+    else no grant: ask the person
+        H->>U: session/request_permission
+        alt allow_once / allow_always before deadline
+            U-->>H: allow (always: store session grant, R006)
+            H-->>P: run operation
+        else reject, timeout, cancelled, error, lost client
+            U-->>H: (reject_always: store session denial)
+            H-->>P: permission_denied (R014)
+        end
     end
+    H->>R: one record per decision, no payload (R010-R012)
 ```
 
-HCS defines the shapes and enforcement rules only; the permission vocabulary,
-policy language and trust tiers belong to the distribution (OQ-0005-1).
+Only an explicit allow before the deadline runs an operation; answers come only
+through the host's channel to the person, never from model or tool text (R015).
+A decision that cannot be recorded is a deny (R012). HCS defines the shapes and
+enforcement rules only; the permission vocabulary, policy language and trust
+tiers belong to the distribution (OQ-0005-1).
 
 ## 10. Errors on the wire (HCS-0006)
 
@@ -303,6 +339,8 @@ flowchart LR
     err["HCS error object<br/>{code, message, entry?,<br/>capability?, requirement?, details?}"]
     err -->|JSON-RPC 2.0: MCP, ACP| rpc["error.data.hcsError<br/>numeric code from the protocol<br/>(R003)"]
     err -->|HTTP| p9457["RFC 9457 problem details<br/>type = urn:hcs:error:&lt;code&gt;<br/>extension member hcsError<br/>(R004, R005)"]
+    rpc --> client["client reads only hcsError,<br/>never top-level code / reason<br/>(R006)"]
+    p9457 --> client
 ```
 
 ## 11. How the repository is built
@@ -328,7 +366,7 @@ flowchart LR
 ```
 
 The reference runner executes the `document`, `integrity`, `resolution`,
-`authority`, `distribution` and `projection` levels. `host` cases describe a
+`authority`, `distribution`, `projection` and `client` levels. `host` cases describe a
 scenario that needs a running host and are reported `pending` until a
 system-under-test interface exists (issue #20). See the README, "How to pin
 HCS", for the consumer side.
