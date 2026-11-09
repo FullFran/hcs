@@ -21,7 +21,7 @@ export function buildPackage(dir: string) {
       const full = join(path, name), relative = prefix ? `${prefix}/${name}` : name;
       const stat = lstatSync(full);
       if (stat.isDirectory()) { members.push({ name: relative, type: 'directory' }); walk(full, relative); }
-      else if (stat.isFile()) members.push({ name: relative, data: readFileSync(full) });
+      else if (stat.isFile()) members.push({ name: relative, data: readFileSync(full), executable: (stat.mode & 0o100) !== 0 });
       else throw new Error(`Unsupported source member: ${relative}`);
     }
   }
@@ -39,7 +39,7 @@ export function sealTree(dir: string): void {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) sealTree(path);
-    else if (entry.isFile()) chmodSync(path, 0o444);
+    else if (entry.isFile()) chmodSync(path, lstatSync(path).mode & 0o111 ? 0o555 : 0o444);
     else throw new Error('Cannot seal non-regular member');
   }
   chmodSync(dir, 0o555);
@@ -86,7 +86,7 @@ export function unpackPackage(bytes: Uint8Array, expected: PackageExpected, targ
     for (const member of members) {
       const dest = join(partial, member.name);
       if (member.type === '5') mkdirSync(dest, { recursive: true });
-      else { mkdirSync(dirname(dest), { recursive: true }); writeFileSync(dest, member.data, { flag: 'wx' }); }
+      else { mkdirSync(dirname(dest), { recursive: true }); writeFileSync(dest, member.data, { flag: 'wx', mode: member.mode & 0o111 ? 0o755 : 0o644 }); }
     }
     sealTree(partial);
     // Callers that share a state directory serialize through the host lock, so no writer races this check.
