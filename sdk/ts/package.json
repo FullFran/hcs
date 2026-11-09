@@ -1,0 +1,11 @@
+{
+  "name": "@fullfran/hcs-sdk",
+  "version": "0.1.0-draft.3",
+  "description": "Reference implementation of the Harness Composition Specification (HCS) in TypeScript",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\""
+  }
+}

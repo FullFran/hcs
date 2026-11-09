@@ -23,8 +23,10 @@ distribution metadata).
    Every harness I build is a consumer, and each one pins the release it uses.
 2. **Schema is the source of truth.** Normative prose lives in `spec/`
    (MUST/SHOULD/MAY per RFC 2119/8174); machine-readable contracts live in
-   `schemas/` (JSON Schema 2020-12). Language SDKs are generated from the
-   schemas, never the other way around.
+   `schemas/` (JSON Schema 2020-12). Types are derived from the schemas,
+   never the other way around; the reference implementation in `sdk/ts/` is
+   hand-written and measured against `conformance/` like any harness
+   ([ADR-0029](docs/adr/0029-reference-sdk-in-typescript.md)).
 3. **No claim without a test.** Every MUST gets a case in `conformance/`.
    A harness measures itself against those cases and records where it
    diverges on purpose; HCS informs a harness, it does not block it.
@@ -43,7 +45,7 @@ distribution metadata).
 spec/          HCS-NNNN-*.md normative documents
 schemas/       versioned JSON Schemas
 conformance/   runner, valid and invalid fixtures
-sdk/ts/        generated types and host interfaces (when needed)
+sdk/ts/        reference implementation in TypeScript (ADR-0029)
 sdk/rust/      generated types (when needed)
 examples/
 docs/adr/
