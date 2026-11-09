@@ -1,5 +1,5 @@
 const BLOCK = 512;
-export interface TarInput { name: string; type?: 'file' | 'directory'; data?: Uint8Array }
+export interface TarInput { name: string; type?: 'file' | 'directory'; data?: Uint8Array; executable?: boolean }
 export interface TarMember { name: string; type: string; size: number; mode: number; linkname: string; data: Buffer }
 
 export class TarUnsafeNameError extends Error {
@@ -44,7 +44,7 @@ export function writeTar(members: TarInput[]): Buffer {
     if (dir && data.length) throw new Error('Directory cannot have data');
     const [prefix, name] = splitName(member.name);
     const header = Buffer.alloc(BLOCK);
-    header.write(name, 0, 100); putOctal(header, 100, 8, dir ? 0o755 : 0o644);
+    header.write(name, 0, 100); putOctal(header, 100, 8, dir || member.executable ? 0o755 : 0o644);
     putOctal(header, 108, 8, 0); putOctal(header, 116, 8, 0);
     putOctal(header, 124, 12, data.length); putOctal(header, 136, 12, 0);
     header.fill(32, 148, 156); header.write(dir ? '5' : '0', 156);

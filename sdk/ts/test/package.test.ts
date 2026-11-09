@@ -134,3 +134,24 @@ test('fetch aborts the download when the caller signal aborts', scratch(async di
     assert.equal(downloadSignal?.aborted, true);
   });
 }));
+
+test('the executable bit survives build and unpack, normalized to 0755/0644', () => {
+  const root = mkdtempSync(join(tmpdir(), 'hcs-exec-'));
+  try {
+    const src = join(root, 'src');
+    mkdirSync(join(src, 'scripts'), { recursive: true });
+    writeFileSync(join(src, 'scripts', 'run.sh'), '#!/bin/sh\necho ok\n'); chmodSync(join(src, 'scripts', 'run.sh'), 0o700);
+    writeFileSync(join(src, 'SKILL.md'), '# skill\n'); chmodSync(join(src, 'SKILL.md'), 0o600);
+    const built = buildPackage(src);
+    const out = join(root, 'out');
+    unpackPackage(built.bytes, built, out);
+    assert.notEqual(statSync(join(out, 'scripts', 'run.sh')).mode & 0o111, 0, 'executable file keeps its x bit');
+    assert.equal(statSync(join(out, 'SKILL.md')).mode & 0o111, 0, 'plain file stays non-executable');
+    // Owner-only source modes normalize to 0755/0644 in the archive, so the digest ignores umask and group bits.
+    chmodSync(join(src, 'scripts', 'run.sh'), 0o755); chmodSync(join(src, 'SKILL.md'), 0o644);
+    assert.deepEqual(buildPackage(src).bytes, built.bytes);
+  } finally {
+    for (const d of [join(root, 'out', 'scripts'), join(root, 'out')]) { try { chmodSync(d, 0o700); } catch {} }
+    rmSync(root, { recursive: true, force: true });
+  }
+});
