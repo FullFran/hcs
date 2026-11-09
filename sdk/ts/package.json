@@ -4,8 +4,25 @@
   "description": "Reference implementation of the Harness Composition Specification (HCS) in TypeScript",
   "license": "Apache-2.0",
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "test": "node --test \"test/**/*.test.ts\""
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc --ignoreConfig src/index.ts --rootDir src --outDir dist --declaration --target es2024 --module nodenext --types node --strict --erasableSyntaxOnly --verbatimModuleSyntax --rewriteRelativeImportExtensions --skipLibCheck"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
   }
 }
