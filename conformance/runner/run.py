@@ -16,9 +16,12 @@ releases mis-resolve relative $refs under urn: base URIs). Formats are not asser
 """
 import base64
 import hashlib
+import gzip
+import io
 import json
 import pathlib
 import sys
+import zlib
 
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
@@ -103,13 +106,40 @@ def check_document(target, doc):
     return []
 
 
-# ---------- integrity level (HCS-0001-R007) ----------
+# ---------- integrity level (HCS-0001-R007/R018) ----------
+
+MAX_UNCOMPRESSED_BYTES = 256 * 1024 * 1024 + 10000 * 1023 + 1024
 
 def check_integrity(inp):
     entry, data = inp["entry"], base64.b64decode(inp["contentBase64"], validate=True)
     algo, _, want = entry["contentHash"].partition(":")
     if len(data) != entry["size"] or hashlib.new(algo, data).hexdigest() != want:
         return [err("integrity_mismatch", entry["id"])]
+    if "contentId" in entry:
+        identity = entry["contentId"]
+        if not schema_valid(CATALOG + "#/$defs/contentHash", identity) or identity.endswith("\n") or not data.startswith(b"\x1f\x8b"):
+            return [err("integrity_mismatch", entry["id"])]
+        algorithm, _, want = identity.partition(":")
+        cap = inp.get("maxUncompressedBytes", MAX_UNCOMPRESSED_BYTES)
+        if type(cap) is not int or cap < 0 or cap > MAX_UNCOMPRESSED_BYTES:
+            raise ValueError("invalid decompression limit")
+        # Stream through a fixed buffer, with a one-byte overflow probe. GzipFile
+        # validates trailers and handles concatenated gzip members as one stream.
+        digest, total = hashlib.new(algorithm), 0
+        try:
+            with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+                while True:
+                    chunk = stream.read(min(65536, cap - total + 1))
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > cap:
+                        return [err("integrity_mismatch", entry["id"])]
+                    digest.update(chunk)
+        except (OSError, EOFError, zlib.error):
+            return [err("integrity_mismatch", entry["id"])]
+        if digest.hexdigest() != want:
+            return [err("integrity_mismatch", entry["id"])]
     return []
 
 

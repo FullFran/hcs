@@ -6,11 +6,11 @@ import { HcsFailure, hcsError } from './errors.ts';
 import { checkDetailPrefix, DEFAULT_DETAIL_PREFIX } from './extensions.ts';
 import { readTar, writeTar, TarUnsafeNameError, type TarInput } from './tar.ts';
 
-export interface PackageExpected { size: number; contentHash: string }
+export interface PackageExpected { size: number; contentHash: string; contentId?: string }
 export interface PackageLimits { maxBytes?: number; maxMembers?: number }
 const mediaType = 'application/vnd.oci.image.layer.v1.tar+gzip';
 const hashPattern = /^(sha256:[a-f0-9]{64}|sha512:[a-f0-9]{128})$/;
-function failure(message: string): never { throw new HcsFailure([hcsError('integrity_mismatch', message, { requirement: 'HCS-0001-R007' })]); }
+function failure(message: string, requirement = 'HCS-0001-R007'): never { throw new HcsFailure([hcsError('integrity_mismatch', message, { requirement })]); }
 function unsafe(prefix: string, name: string, reason: string): never {
   throw new HcsFailure([hcsError('integrity_mismatch', 'Unsafe archive member', { details: { [`${prefix}-archive`]: 'unsafe-member', [`${prefix}-member`]: name, [`${prefix}-reason`]: reason } })]);
 }
@@ -26,14 +26,41 @@ export function buildPackage(dir: string) {
     }
   }
   if (!lstatSync(dir).isDirectory()) throw new Error('Package source must be a directory');
-  walk(dir, ''); const bytes = gzipSync(writeTar(members), { level: 9 });
-  return { bytes, contentHash: `sha256:${createHash('sha256').update(bytes).digest('hex')}`, size: bytes.length, mediaType };
+  walk(dir, ''); const tar = writeTar(members), bytes = gzipSync(tar, { level: 9 });
+  return { bytes, contentHash: `sha256:${createHash('sha256').update(bytes).digest('hex')}`, contentId: `sha256:${createHash('sha256').update(tar).digest('hex')}`, size: bytes.length, mediaType };
 }
-export function verifyPackage(bytes: Uint8Array, expected: PackageExpected): void {
+function verifyTransport(bytes: Uint8Array, expected: PackageExpected): void {
   if (bytes.length !== expected.size) failure('Package size does not match');
   if (!hashPattern.test(expected.contentHash)) failure('Invalid package content hash');
   const [algorithm, digest] = expected.contentHash.split(':');
   if (createHash(algorithm).update(bytes).digest('hex') !== digest) failure('Package digest does not match');
+}
+// Shared by verification, extraction and grant request reading. The cap bounds the entire
+// decompressed stream, including headers and padding, not only regular-file payloads.
+const DEFAULT_TAR_LIMIT = 256 * 1024 * 1024 + 10000 * 1023 + 1024;
+export function verifiedPackageTar(bytes: Uint8Array, expected: PackageExpected, maxOutputLength = DEFAULT_TAR_LIMIT): Buffer {
+  verifyTransport(bytes, expected);
+  if (!Number.isSafeInteger(maxOutputLength) || maxOutputLength < 0) throw new RangeError('Invalid package decompression limit');
+  const hasIdentity = expected.contentId !== undefined;
+  if (hasIdentity && (typeof expected.contentId !== 'string' || !hashPattern.test(expected.contentId) || expected.contentId.endsWith('\n'))) failure('Invalid package content identity', 'HCS-0001-R018');
+  let tar: Buffer;
+  try {
+    tar = gunzipSync(bytes, { maxOutputLength: Math.max(1, maxOutputLength) });
+    if (tar.length > maxOutputLength) throw new Error('Package decompression limit exceeded');
+  }
+  catch (error) {
+    if (hasIdentity) failure('Package content identity could not be verified', 'HCS-0001-R018');
+    throw error;
+  }
+  if (hasIdentity) {
+    const [algorithm, digest] = expected.contentId!.split(':');
+    if (createHash(algorithm).update(tar).digest('hex') !== digest) failure('Package content identity does not match', 'HCS-0001-R018');
+  }
+  return tar;
+}
+export function verifyPackage(bytes: Uint8Array, expected: PackageExpected): void {
+  if (expected.contentId === undefined) verifyTransport(bytes, expected);
+  else verifiedPackageTar(bytes, expected);
 }
 export function sealTree(dir: string): void {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -55,14 +82,14 @@ function unsealTree(dir: string): void {
 // `detailPrefix` names the extension members of an unsafe-member error (`<prefix>-archive`, `-member`, `-reason`).
 export function unpackPackage(bytes: Uint8Array, expected: PackageExpected, targetDir: string, limits: PackageLimits = {}, detailPrefix = DEFAULT_DETAIL_PREFIX): void {
   const prefix = checkDetailPrefix(detailPrefix);
-  verifyPackage(bytes, expected);
+  verifyTransport(bytes, expected);
   const maxBytes = limits.maxBytes ?? 256 * 1024 * 1024, maxMembers = limits.maxMembers ?? 10000;
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 0 || !Number.isSafeInteger(maxMembers) || maxMembers < 0) throw new RangeError('Invalid package limits');
   if (taken(targetDir)) throw new Error('Package target already exists');
   // Allow each member a header and up to one padding block, plus the terminator.
   const cap = Math.min(maxBytes + maxMembers * 1023 + 1024, 0x7fffffff);
   let members: ReturnType<typeof readTar>;
-  try { members = readTar(gunzipSync(bytes, { maxOutputLength: Math.max(1, cap) })); }
+  try { members = readTar(verifiedPackageTar(bytes, expected, cap)); }
   catch (error) {
     if (error instanceof TarUnsafeNameError) unsafe(prefix, error.memberName, 'invalid path');
     throw error;

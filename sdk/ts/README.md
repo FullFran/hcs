@@ -12,6 +12,14 @@ Distribution-specific behaviour (extension kinds, detail-key prefixes, permissio
 - **Grantable permissions**: required by `readGrants(dir, grantable)`, `grantPermission(dir, entry, permission, grantable)`, `revokePermission(dir, entry, permission, grantable)` and `grantAuthorizer({ grantsDir, storeDir, grantable })`. `applyDesiredSet` takes `grantable` as an option and defaults to none, so a package that requests any permission is refused until the harness passes its set.
 - **Detail-key prefix**: errors carry extension members in `details` named `<prefix>-pointer`, `<prefix>-archive`, `<prefix>-member`, `<prefix>-reason` and `<prefix>-rollback`. The prefix is an optional last argument of `readCatalog(bytes, limits, detailPrefix)` and `unpackPackage(bytes, expected, dir, limits, detailPrefix)`, and the `detailPrefix` option of `applyDesiredSet`; it defaults to `x-hcs-sdk` and must be an extension name (`x-...`), otherwise a `RangeError` is thrown.
 
+## Package identity
+
+`buildPackage(dir)` returns `bytes`, compressed `contentHash` / `size`, `mediaType`, and `contentId` (SHA-256 of the exact uncompressed tar stream). Pass the expected entry from a verified catalog to `verifyPackage`, `unpackPackage` or `packageRequests`; when `contentId` is present, they verify transport first, bound decompression and verify that identity before using package content. Extraction retains its member, payload and unsafe-member checks. The default whole-tar bound is 256 MiB + 10,000 × 1,023 + 1,024 bytes; `unpackPackage` derives its bound from the supplied `maxBytes` / `maxMembers`.
+
+Without `contentId`, `verifyPackage` remains transport-only (it does not require valid gzip); extraction and permission reading still decompress as before. Missing identity means unknown, not equal. Identity covers headers, order, metadata, padding and terminators, not just file contents. No tar canonicalization, cache-key change or grant reuse is introduced. Consumers, not the hash, supply authority: DISTRO-1's signed catalog binds `contentId` to the entry and transport identity.
+
+Older closed-schema catalog validators reject `contentId`; this draft addition does **not** promise compatibility. Upgrade consumers before emitting it, or publish a separately signed legacy catalog without the member. Removing it from an already signed envelope invalidates that signature. See [HCS-0001 section 3.5](../../spec/HCS-0001-catalog-manifest.md#35-optional-uncompressed-content-identity).
+
 ## Modules
 
 | Module | Spec | Origin |

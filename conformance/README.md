@@ -5,7 +5,7 @@ Cases are data (`case.schema.json`), one file per case, in `cases/<document>/<re
 | Level | Executed by the reference runner | What it checks |
 | --- | --- | --- |
 | `document` | yes | a JSON document against an HCS schema (`target`), plus semantic checks: `hcsVersion` first, duplicate entry ids, problem-details `type`/code equality |
-| `integrity` | yes | `size` and `contentHash` against base64 bytes (HCS-0001-R007) |
+| `integrity` | yes | `size` and `contentHash` against base64 bytes, then optional `contentId` against the bounded uncompressed tar stream (HCS-0001-R007/R018) |
 | `resolution` | yes | the HCS-0003 algorithm: activation order and typed errors |
 | `authority` | yes | the HCS-0005 evaluation: grants, stored denials (a matching denial wins) and session limits |
 | `distribution` | yes | HCS-0007: signature input, key set and envelope verification with fixture keys and a stated clock |
@@ -28,6 +28,14 @@ node conformance/runner/xcheck-ajv.mjs . /some/dir
 ```
 
 The runner exits non-zero on any failing or malformed case, and when a MUST/MUST NOT requirement lacks a `valid` or an `invalid` case, or a case names an unknown requirement (HCS-0000-R001/R002).
+
+## Integrity cases (HCS-0001)
+
+`input.entry` gives the expected `id`, `size`, `contentHash` and optional `contentId`; `input.contentBase64` contains the fetched compressed bytes. Transport verification precedes decompression. Without `contentId`, the integrity level retains transport-only behavior (the existing valid non-gzip fixture remains valid). With it, gzip/decompression-limit failures or a mismatched identity yield `integrity_mismatch`. This level hashes exact tar bytes; it does not extract or validate archive members.
+
+The reference runner bounds total decompressed output to 256 MiB + 10,000 × 1,023 + 1,024 bytes and hashes fixed-size chunks. Fixtures can set `input.maxUncompressedBytes` to a smaller nonnegative whole-stream cap to exercise boundaries without allocating large archives. The SDK conformance adapter applies the same fixture cap. The focused runner tests are `python3 -B -m unittest discover -s conformance/runner -p test_content_identity.py` (requires the same jsonschema dependency as the runner).
+
+`contentId` is a draft schema addition, not a compatibility guarantee: older closed validators reject it. See HCS-0001 section 3.5 for migration and the authenticated catalog binding required for identity-based decisions.
 
 ## Distribution cases (HCS-0007)
 

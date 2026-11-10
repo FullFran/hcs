@@ -59,6 +59,7 @@ Out of scope here: signing, freshness and rollback protection of the manifest (D
 | `version` | yes | opaque string | package version ([ADR-0004](../docs/adr/0004-opaque-package-versions.md)) |
 | `contentHash` | yes | digest | digest of the exact package bytes ([ADR-0003](../docs/adr/0003-digest-format.md)) |
 | `size` | yes | integer ≥ 0 | length of the package bytes, in bytes |
+| `contentId` | no | digest | identity of the exact uncompressed tar stream (3.5), separate from transport integrity |
 | `mediaType` | yes | string | media type of the package bytes, as in an OCI descriptor (3.4) |
 | `locations` | no | array of URI | where the bytes can be fetched; hints only, integrity comes from `contentHash` and `size` |
 | `contributions` | yes | array of contribution, ≥ 1 | what the package adds to the host |
@@ -100,6 +101,22 @@ Core kinds reference external standards and do not restate them:
 
 Document limits (R015) protect a host from a hostile document that exhausts memory or the parser stack before validation can reject it. The floor values let a producer know what every host accepts; a host can accept more.
 
+### 3.5 Optional uncompressed content identity
+
+`contentId` is an OCI DiffID-like digest of the **exact uncompressed tar byte stream**, using the same `sha256` / `sha512` lowercase-hex grammar as `contentHash` ([ADR-0030](../docs/adr/0030-uncompressed-package-identity.md)). For the core gzip media type, hash all bytes produced by decompression, including tar headers, member order, metadata, padding and terminators. Do not hash extracted file contents or reserialize the tar. This adds no canonical tar format and does not strengthen the producer determinism SHOULD (R014).
+
+Two differently compressed packages can have the same verified `contentId` and different `contentHash` and `size`. Equal trees can have different `contentId` values: this is not a universal tree identity. Compare identities only when both are present, verified and use the same algorithm. Absence means unknown, not equality; different algorithms do not establish inequality of the underlying bytes either.
+
+Verification order is transport size, transport digest, bounded decompression, then `contentId`, before reading package metadata (including permission requests), extracting or executing content. Identity verification does not validate tar safety or replace extraction checks, resource limits, resolution, grants or lifecycle policy. A host retains limits on the whole decompressed stream as well as its existing member and payload limits. Vendor media types need a defined mapping to an uncompressed tar stream to use this field; `contentId` does not make an unsupported media type supported.
+
+A content identity is not an authority. Decisions based on it need the verified association between entry id, `contentHash`, `size` and `contentId` from the authenticated catalog. In DISTRO-1, HCS-0007 already signs the entire catalog inside the envelope: keep `contentId` there, verify that envelope, and do not replace that binding with a sidecar, location hint or an untrusted cache record. Identical tar bytes do not imply identical entry metadata or grants. HCS defines no automatic deduplication, activation skipping or grant reuse based on `contentId`.
+
+#### Migration in this draft
+
+Producers can omit `contentId`; consumers then retain the existing `contentHash` / `size` verification behavior and cannot infer uncompressed equality. Updated producers can add the field after computing it from the tar stream and publish a newly signed catalog. Updated hosts verify it when present (R018), not merely trust its advertised value.
+
+**Older closed-schema validators reject the new field as an unknown member**, even with `hcsVersion: "0.1"`. This draft schema addition is not a backward-compatibility promise. Upgrade consumers before publishing it on their channel, or keep a separately signed catalog without the field for old consumers. Do not strip the member from an already signed catalog: that invalidates the signature. No version negotiation or fallback is introduced here.
+
 ## 4. Requirements
 
 ### 4.1 Document requirements
@@ -112,6 +129,8 @@ Document limits (R015) protect a host from a hostile document that exhausts memo
 
 **[HCS-0001-R004]** `contentHash` MUST be `sha256:` followed by 64 lowercase hex digits or `sha512:` followed by 128 lowercase hex digits.
 
+**[HCS-0001-R017]** When present, `contentId` MUST be `sha256:` followed by 64 lowercase hex digits or `sha512:` followed by 128 lowercase hex digits.
+
 **[HCS-0001-R005]** A contribution `path` MUST be relative, use `/` as separator, and MUST NOT contain a `..` segment.
 
 **[HCS-0001-R006]** A contribution `kind` MUST be `skill`, `mcp-server` or an extension name.
@@ -121,6 +140,8 @@ Document limits (R015) protect a host from a hostile document that exhausts memo
 ### 4.2 Host requirements
 
 **[HCS-0001-R007]** A host MUST verify that fetched package bytes have exactly `size` bytes and match `contentHash` before unpacking or executing any of them, and MUST report `integrity_mismatch` otherwise.
+
+**[HCS-0001-R018]** When `contentId` is present, a host MUST verify it against the exact uncompressed tar stream after verifying `size` and `contentHash`, using bounded decompression and before using any package content (including permission requests and extraction); it MUST report `integrity_mismatch` when decompression or identity verification fails, and MUST retain its extraction safety checks and resource limits. A host making decisions from this identity MUST protect its association with the authenticated catalog entry and MUST NOT interpret an absent identity as equality.
 
 **[HCS-0001-R008]** A host MUST NOT activate an entry that has a contribution whose `kind` it does not implement, and MUST report `unsupported_contribution` for that entry.
 

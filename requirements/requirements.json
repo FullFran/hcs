@@ -58,6 +58,13 @@
       "source": "spec/HCS-0001-catalog-manifest.md"
     },
     {
+      "id": "HCS-0001-R017",
+      "document": "HCS-0001",
+      "keyword": "MUST",
+      "text": "When present, `contentId` MUST be `sha256:` followed by 64 lowercase hex digits or `sha512:` followed by 128 lowercase hex digits.",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
       "id": "HCS-0001-R005",
       "document": "HCS-0001",
       "keyword": "MUST",
@@ -83,6 +90,13 @@
       "document": "HCS-0001",
       "keyword": "MUST",
       "text": "A host MUST verify that fetched package bytes have exactly `size` bytes and match `contentHash` before unpacking or executing any of them, and MUST report `integrity_mismatch` otherwise.",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
+      "id": "HCS-0001-R018",
+      "document": "HCS-0001",
+      "keyword": "MUST",
+      "text": "When `contentId` is present, a host MUST verify it against the exact uncompressed tar stream after verifying `size` and `contentHash`, using bounded decompression and before using any package content (including permission requests and extraction); it MUST report `integrity_mismatch` when decompression or identity verification fails, and MUST retain its extraction safety checks and resource limits. A host making decisions from this identity MUST protect its association with the authenticated catalog entry and MUST NOT interpret an absent identity as equality.",
       "source": "spec/HCS-0001-catalog-manifest.md"
     },
     {

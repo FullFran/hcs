@@ -11,7 +11,7 @@ import { readCatalog, type CatalogManifest } from '../src/catalog.ts';
 import { HcsFailure } from '../src/errors.ts';
 import type { HostProfile } from '../src/host.ts';
 import { validateEntryStatus } from '../src/lifecycle.ts';
-import { verifyPackage, type PackageExpected } from '../src/package.ts';
+import { verifyPackage, verifiedPackageTar, type PackageExpected } from '../src/package.ts';
 import { resolve as resolveCatalog } from '../src/resolve.ts';
 
 const REPO = resolve(import.meta.dirname, '..', '..', '..');
@@ -37,9 +37,11 @@ const runners: Record<string, (value: HcsCase) => void> = {
     assert.equal(validateEntryStatus(value.input).length === 0 ? 'valid' : 'invalid', value.expect.outcome);
   },
   integrity: value => {
-    const { entry, contentBase64 } = value.input as { entry: PackageExpected; contentBase64: string };
+    const { entry, contentBase64, maxUncompressedBytes } = value.input as { entry: PackageExpected; contentBase64: string; maxUncompressedBytes?: number };
     assert.equal(typeof contentBase64, 'string');
-    const verify = () => verifyPackage(Buffer.from(contentBase64, 'base64'), entry);
+    const verify = () => entry.contentId !== undefined && maxUncompressedBytes !== undefined
+      ? verifiedPackageTar(Buffer.from(contentBase64, 'base64'), entry, maxUncompressedBytes)
+      : verifyPackage(Buffer.from(contentBase64, 'base64'), entry);
     if (value.expect.outcome === 'valid') { assert.doesNotThrow(verify); return; }
     assert.equal(value.expect.outcome, 'invalid');
     assert.throws(verify, (error: unknown) => {
