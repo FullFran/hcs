@@ -132,3 +132,24 @@ test('streamed verification matches the buffered path on the HCS-0001 R007 and R
   }
   assert.ok(count >= 3);
 });
+
+test('integrity failures say which check failed and what arrived, without changing code or message', async () => {
+  const d = descriptor(bytes);
+  const details = async (run: Promise<unknown>) => {
+    try { await run; } catch (error) { mismatch(error); return (error as HcsFailure).errors[0].details; }
+    assert.fail('expected an integrity failure');
+  };
+  assert.deepEqual(await details(verifyBlobStream(plain([bytes, Buffer.from('x')]), d)),
+    { 'x-hcs-sdk-reason': 'size_exceeded', 'x-hcs-sdk-expected-size': bytes.length });
+  assert.deepEqual(await details(verifyBlobStream(plain([bytes.subarray(0, 5)]), d)),
+    { 'x-hcs-sdk-reason': 'size_short', 'x-hcs-sdk-expected-size': bytes.length, 'x-hcs-sdk-observed-size': 5 });
+  const other = Buffer.from(bytes); other[0] ^= 1;
+  assert.deepEqual(await details(collectVerifiedBlob(plain([other]), d)),
+    { 'x-hcs-sdk-reason': 'digest_mismatch', 'x-hcs-sdk-observed-digest': descriptor(other).digest });
+  // A host passes its own extension prefix, as the other SDK entry points allow.
+  assert.deepEqual(await details(verifyBlobStream(plain([other]), d, { detailPrefix: 'x-example' })),
+    { 'x-example-reason': 'digest_mismatch', 'x-example-observed-digest': descriptor(other).digest });
+  await assert.rejects(verifyBlobStream(plain([bytes]), d, { detailPrefix: 'example' }), RangeError);
+  const viaTransform = async () => { for await (const _ of verifyingTransform(plain([other]), d, { detailPrefix: 'x-example' })) { /* drain */ } };
+  assert.deepEqual(await details(viaTransform()), { 'x-example-reason': 'digest_mismatch', 'x-example-observed-digest': descriptor(other).digest });
+});
