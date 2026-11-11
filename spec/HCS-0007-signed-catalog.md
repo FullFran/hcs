@@ -104,6 +104,8 @@ JCS sorts object members by their UTF-16 code units, writes no whitespace, and e
 
 **[HCS-0007-R004]** An envelope or key set MUST NOT contain a number that is not an integer between -(2^53-1) and 2^53-1.
 
+R004 applies to every number in the document, at any depth, including numbers inside extension members and inside the embedded catalog. The signature covers the whole document except `signatures` (section 4), so a number outside the domain anywhere leaves the document without one canonical form that every implementation computes alike. Rejecting it does not conflict with HCS-0000-R003: the host rejects the document because it has no canonical form, not because it does not understand the extension member. The same holds for an unpaired surrogate or a duplicated member name inside an extension member.
+
 ### 5.2 Envelope verification
 
 A host verifies an envelope in this order and stops at the first failure: (1) version and shape, R001; (2) signatures, R005; (3) binding, R006; (4) expiry, R007; (5) sequence, R008; (6) the catalog, R010. The current time is the host's clock; conformance cases state it explicitly.

@@ -87,6 +87,16 @@ A client that reads the wrong member gets the wrong answer and can still pass it
 
 Because the set of codes is closed (R002), a client that implements this version reads a code added by a later version as "no HCS error" and handles the response as a generic failure.
 
+### 4.4 Moving from a distribution code to a registry code
+
+This section is informative. A distribution can ship before the registry has a code for one of its failures, and report it with a value of its own (for example `x-example-signature_invalid` where `signature_invalid` was later added). Such a value was never an HCS code (R002), so nothing here makes it one. When the registry gains the code:
+
+- Hosts and servers emit the registry code from the first release that implements the version of this document that defines it, and move anything distribution-specific to `details`.
+- A client of that distribution may keep reading the old value from the peers it already has in the field, as a distribution rule outside HCS, and treats it as the registry code. Under R006 the old value still carries no HCS error, so a client of another distribution is unaffected.
+- The client drops the old value when no supported release of that distribution emits it any more. HCS sets no duration: the window is that distribution's support period for the releases that emit the old value, and the distribution states it in its own documentation.
+
+New distributions do not need this: they report a registry code, or no HCS error.
+
 ## 5. Open questions
 
 - OQ-0006-1: whether errors need a stable machine-readable `retryable` hint (`timeout` usually is, `integrity_mismatch` is not). No consumer needs it yet.
