@@ -20,6 +20,13 @@
 - Envelope: DSSE `payloadType` MUST be `application/vnd.in-toto+json` or (since v1.2) `application/vnd.in-toto.<predicate>+json`; single-attestation media type form `application/vnd.in-toto.<predicate>+dsse`.
 - Subjects are matched purely by digest, regardless of content type.
 
+### Two version numbers: framework release and Statement layer
+
+- `v1.2.0` is the release of the `in-toto/attestation` repository (the Attestation Framework: Envelope, Statement, Predicate documents). The `spec/v1/README.md` header at that tag reads "Version: v1.2"; `spec/v1/CHANGELOG.md` lists `v1` (initial release), `v1.1` and `v1.2`, and has no `v1.0` heading.
+- The Statement layer has no number of its own beyond the major version: `spec/versioning.md` says the TypeURI carries only the major version, so every 1.x framework release uses `_type` `https://in-toto.io/Statement/v1`. `spec/v1/statement.md` states no minor or patch number for the Statement. A consumer that cites "Statement v1.0" (or "v1") is naming that major line; it does not conflict with the pin of framework v1.2.0, which still emits `Statement/v1`. Predicates version independently of both (same file).
+- The in-toto Specification "1.0.0" in the header table is a different document (layout and link metadata, `in-toto/docs`); do not read it as the Statement version.
+- Sources for this paragraph, read 2026-11-11 at tag `v1.2.0`: https://github.com/in-toto/attestation/blob/v1.2.0/spec/versioning.md, https://github.com/in-toto/attestation/blob/v1.2.0/spec/v1/README.md, https://github.com/in-toto/attestation/blob/v1.2.0/spec/v1/CHANGELOG.md, https://github.com/in-toto/attestation/blob/v1.2.0/spec/v1/statement.md.
+
 ### DigestSet (for HCS-0001)
 - JSON object: algorithm name -> string digest, e.g. `{"sha256": "<lowercase hex>"}`; multiple entries allowed for agility.
 - Named standard algorithms use NIST names lowercased with `-` replaced by `_`, lowercase hex values: `sha256`, `sha224`, `sha384`, `sha512`, `sha512_224`, `sha512_256`, `sha3_224`, `sha3_256`, `sha3_384`, `sha3_512`, `shake128`, `shake256`, `blake2b`, `blake2s`, `ripemd160`, `sm3`, `gost`, `sha1`, `md5`.

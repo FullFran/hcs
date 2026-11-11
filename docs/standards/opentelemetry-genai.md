@@ -37,6 +37,12 @@ Attributes relevant to HCS tool/agent calls (registry at the pinned commit):
 - Context: `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.conversation.id`.
 - MCP: `mcp.method.name`, `mcp.session.id`, `mcp.resource.uri`, `mcp.protocol.version`; MCP spans also reference `jsonrpc.protocol.version`, `jsonrpc.request.id`, `rpc.response.status_code`, `network.transport`, `server.address`, `server.port`, `error.type`.
 
+What the pinned conventions define and do not (read 2026-11-11 at the pinned commit: `model/gen-ai/spans.yaml`, `model/gen-ai/registry.yaml`, `docs/registry/attributes/gen-ai.md`, `docs/gen-ai/gen-ai-agent-spans.md`):
+
+- Cost: no attribute for a monetary amount or currency; the conventions are silent. Usage is expressed only as token counts (`gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, cache and reasoning breakdowns).
+- Run-level span: no span is described as a whole-run or top-level span. The agent-level spans are `invoke_agent` (client, and internal for an in-process agent), `invoke_workflow` (internal, application-defined control flow, nested workflows still reported), `invoke_{framework_entrypoint}` (internal, e.g. `invoke_runner`) and `plan`. Whether one of them stands for a run is not stated.
+- Run and task ids: no attribute carries a run id or a task id, and the conventions define no namespace for them; they are silent. The nearest identifiers are `gen_ai.conversation.id`, `gen_ai.agent.id`, `gen_ai.tool.call.id` and `gen_ai.realtime_session.id`. The word "task" appears only in the description of the `plan` operation.
+
 Context propagation: W3C Trace Context `traceparent` (format `00-<trace-id>-<parent-id>-<flags>`),
 `tracestate`, and W3C `baggage`. For MCP, instrumentations SHOULD inject them unprefixed into
 `params._meta` (per MCP SEP-414) and the receiver uses them as remote parent.
@@ -72,6 +78,10 @@ Context propagation: W3C Trace Context `traceparent` (format `00-<trace-id>-<par
 - `gen_ai.tool.call.arguments` / `.result` and message attributes can hold sensitive content;
   HCS should require opt-in capture.
 - The README's "Schema URL" is still TODO; there is no released GenAI schema URL to cite.
+
+## Related
+
+- OTLP, the wire protocol that carries these signals, has its own note: [otlp](otlp.md).
 
 ## Sources
 

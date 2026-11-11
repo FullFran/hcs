@@ -3,7 +3,7 @@ import { isDottedId, isExtensionName, parseCapabilityRef } from './ids.ts';
 
 export const HCS_ERROR_STATUS: Readonly<Record<HcsErrorCode, number>> = {
   manifest_invalid: 422, unsupported_hcs_version: 422, duplicate_entry: 422,
-  integrity_mismatch: 422, unsupported_contribution: 422, platform_incompatible: 422,
+  integrity_mismatch: 422, package_invalid: 422, unsupported_contribution: 422, platform_incompatible: 422,
   version_incompatible: 422, missing_dependency: 409, ambiguous_provider: 409,
   dependency_cycle: 409, unsupported_capability: 404, permission_denied: 403,
   timeout: 504, plugin_failed: 502, signature_invalid: 422, rollback_rejected: 409,

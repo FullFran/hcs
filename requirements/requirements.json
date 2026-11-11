@@ -100,6 +100,41 @@
       "source": "spec/HCS-0001-catalog-manifest.md"
     },
     {
+      "id": "HCS-0001-R019",
+      "document": "HCS-0001",
+      "keyword": "MUST",
+      "text": "A host MUST refuse a package whose tar has a member with an empty path, an absolute path, a `..` segment, a NUL or a backslash in its path, or a path component that starts with `.wh.` (an OCI whiteout name), and MUST report `package_invalid`. A path is empty when it names no member below the package root: an empty name, or one made only of `/` and `.` segments.",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
+      "id": "HCS-0001-R020",
+      "document": "HCS-0001",
+      "keyword": "MUST",
+      "text": "A host MUST refuse a package whose tar has a member that is neither a regular file nor a directory (so every symbolic link, hard link, character or block device, FIFO and extended header record), or a directory member that carries data, and MUST report `package_invalid`.",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
+      "id": "HCS-0001-R021",
+      "document": "HCS-0001",
+      "keyword": "MUST",
+      "text": "A host MUST refuse a package whose tar has a member whose path equals the path of an earlier member, or lies below the path of a regular file member whatever the order of the members, and MUST report `package_invalid`. Paths are compared after resolving `.` segments and removing a trailing `/`.",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
+      "id": "HCS-0001-R022",
+      "document": "HCS-0001",
+      "keyword": "MUST",
+      "text": "A host MUST check member safety (R019 to R021, R023) after verifying `size`, `contentHash` and, when declared, `contentId` (R007, R018), which keep their `integrity_mismatch` errors; MUST finish those checks before writing any member to its final location; and MUST leave no part of a refused package at that location.",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
+      "id": "HCS-0001-R023",
+      "document": "HCS-0001",
+      "keyword": "MUST",
+      "text": "A host MUST refuse a package whose tar cannot be parsed, or whose unpacked size or member count exceeds a limit the host sets, and MUST report `package_invalid`. A host MAY set such limits; HCS states no number. When `contentId` is declared, a failed or over-limit decompression stays `integrity_mismatch` (R018).",
+      "source": "spec/HCS-0001-catalog-manifest.md"
+    },
+    {
       "id": "HCS-0001-R008",
       "document": "HCS-0001",
       "keyword": "MUST NOT",

@@ -3,6 +3,7 @@
 
 Usage:
   python3 conformance/runner/run.py [--report PATH] [--selftest] [-v]
+  python3 conformance/runner/run.py [options] --sut COMMAND [ARG...]   (external system under test: see sut.py)
 
 It validates every case in conformance/cases against conformance/case.schema.json, executes
 document/integrity/resolution/authority/distribution/projection/recovery/client cases with the reference semantics below
@@ -29,6 +30,7 @@ from referencing.jsonschema import DRAFT202012
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import distro1  # noqa: E402
+import package  # noqa: E402
 import projection  # noqa: E402
 import recovery  # noqa: E402
 
@@ -125,7 +127,7 @@ def check_document(target, doc, limits=None, violation=None):
     return []
 
 
-# ---------- integrity level (HCS-0001-R007/R018) ----------
+# ---------- integrity level (HCS-0001-R007/R018; member safety R019-R023 when input.unpack is true) ----------
 
 MAX_UNCOMPRESSED_BYTES = 256 * 1024 * 1024 + 10000 * 1023 + 1024
 
@@ -159,6 +161,10 @@ def check_integrity(inp):
             return [err("integrity_mismatch", entry["id"])]
         if digest.hexdigest() != want:
             return [err("integrity_mismatch", entry["id"])]
+    if inp.get("unpack"):
+        found = package.check_archive(data, inp.get("maxUnpackedBytes", 256 * 1024 * 1024), inp.get("maxMembers", 10000))
+        if found:
+            return [err("package_invalid", entry["id"])]
     return []
 
 
@@ -434,6 +440,9 @@ def selftest():
 
 
 def main(argv):
+    if "--sut" in argv:  # external system under test: conformance/runner/sut.py
+        import sut
+        return sut.main(argv, sys.modules[__name__])
     if "--selftest" in argv:
         selftest()
         distro1.selftest()
