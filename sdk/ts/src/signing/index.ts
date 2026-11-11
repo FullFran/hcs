@@ -9,3 +9,4 @@ export {
   type VerifiedKeySet, type CatalogValidator, type KeySetVerification, type EnvelopeVerification, type SignedCatalogVerification,
 } from './verify.ts';
 export { signDocument, signEnvelope, signKeySet, createEnvelope } from './sign.ts';
+export { isPrivateKeyMaterial, seedToPem, readSignerPem } from './keys.ts';
