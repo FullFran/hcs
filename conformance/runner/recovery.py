@@ -1,7 +1,8 @@
 """Reference recovery decision for HCS-0008 section 7.1 (R031 to R035), used by run.py for `recovery` cases.
 
 Input (case `input`):
-  persisted: {"active": int|null, "confirmed": int|null, "pending": int|null, "failed": [int, ...]}
+  persisted: {"active": int|null, "confirmed": int|null, "pending": int|null, "failed": [int, ...],
+              "stopped": {"generation": int, "reason": str}|null}   ("stopped" is optional: a recorded stop, R016/R035)
              the facts a host reconstructs after a restart, as generation ids. No storage format is implied.
   onDisk:    generation ids whose content is present (the cleanup input).
 
@@ -27,6 +28,8 @@ def recover(inp):
     def out(action, generation):
         return {"action": action, "generation": generation, "returnTo": confirmed, "retain": retain, "failed": failed}
 
+    if facts.get("stopped"):  # R033 item 5 outranks every other item
+        return out("stop-and-report", active)
     if active is None:
         return out("discard-pending", pending) if pending is not None else out("start", None)
     if active in failed:  # R033 item 4 outranks item 1: a failed generation is never started (R032)
@@ -49,4 +52,5 @@ def selftest():
     assert recover({"persisted": dict(base, pending=43)})["action"] == "discard-pending"
     assert recover({"persisted": dict(base, pending=None)})["action"] == "health-check"
     assert recover({"persisted": dict(base, pending=None, confirmed=42)})["action"] == "start"
+    assert recover({"persisted": dict(base, pending=None, confirmed=42, stopped={"generation": 42, "reason": "return-failed"})})["action"] == "stop-and-report"
     print("selftest: HCS-0008 reference recovery passes")

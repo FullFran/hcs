@@ -9,7 +9,7 @@ import { basename, dirname, join, relative, resolve } from 'node:path';
 import { evaluate as evaluateAuthority, type Check, type Denial, type Grant } from '../src/authority.ts';
 import { readCatalog, type CatalogManifest } from '../src/catalog.ts';
 import { HcsFailure } from '../src/errors.ts';
-import { planRecovery, type HostFacts } from '../src/host-state.ts';
+import { planRecovery, type HostFactsInput } from '../src/host-state.ts';
 import type { HostProfile } from '../src/host.ts';
 import { validateEntryStatus } from '../src/lifecycle.ts';
 import { verifyPackage, verifiedPackageTar, type PackageExpected } from '../src/package.ts';
@@ -67,7 +67,7 @@ const runners: Record<string, (value: HcsCase) => void> = {
   },
   // An invalid case states the decision of a non-conforming host: the SDK's decision must differ from it.
   recovery: value => {
-    const input = value.input as { persisted: HostFacts; onDisk?: number[] };
+    const input = value.input as { persisted: HostFactsInput; onDisk?: number[] };
     const got = planRecovery(input.persisted, input.onDisk ?? []) as unknown as Record<string, unknown>;
     const matches = Object.entries(value.expect).every(([key, expected]) => JSON.stringify(got[key]) === JSON.stringify(expected));
     assert.equal(matches, value.polarity === 'valid');

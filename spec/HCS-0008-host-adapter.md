@@ -183,7 +183,7 @@ R028 follows from R001 and R002: a session's history, and any session-limited gr
 
 **[HCS-0008-R015]** When the health check of a new generation fails or its deadline passes, a host MUST report the generation as failed with `plugin_failed` or `timeout`, MUST start an engine run from the confirmed generation, and MUST NOT start the failed generation again automatically.
 
-**[HCS-0008-R016]** When the engine run started from the confirmed generation after a failure also fails its health check, a host MUST stop and report it, and MUST NOT start a further rollback or retry until a new desired set or an operator action arrives. R035 applies when the host cannot return to the confirmed generation at all.
+**[HCS-0008-R016]** When the engine run started from the confirmed generation after a failure also fails its health check, a host MUST stop and report it, and MUST NOT start a further rollback or retry until a new desired set or an operator action arrives. The stop outlives a restart (R033 item 5, R035). R035 applies when the host cannot return to the confirmed generation at all.
 
 **[HCS-0008-R018]** A host that reports the health of an engine run SHOULD report one of the states `healthy`, `unhealthy` or `unknown`, and SHOULD report the failure itself with the codes of R015.
 
@@ -199,6 +199,7 @@ These terms name facts a host persists; HCS defines no file format. All identifi
 - **confirmed:** the last generation that passed R013 (the generation R015 returns to).
 - **pending:** the generation being tried, or none.
 - **failed:** the set of generations marked failed.
+- **stopped:** a recorded stop under R016 or R035, with the generation it concerns, or none.
 
 A host persists a fact durably when a reader after a crash sees either the old record or the new one, never a partial one (for example: write a temporary file, flush it, atomically replace the record; the `AtomicWriter` pattern of [kubernetes-probes.md](../docs/standards/kubernetes-probes.md)).
 
@@ -211,13 +212,14 @@ A host persists a fact durably when a reader after a crash sees either the old r
 1. when a generation is pending and it is the active generation, the host MUST run the check of R013 for it, applying R014 to R016 to the outcome;
 2. when a generation is pending and it is not the active generation, the host MUST discard the pending record and keep the active generation;
 3. when the active generation is recorded neither as confirmed, nor as pending, nor as failed, the host MUST treat it as pending as in item 1, with the confirmed generation as the one to return to, if there is one;
-4. when the active generation is recorded as failed, the host MUST complete the return to the confirmed generation under R015 and MUST NOT start the failed generation.
+4. when the active generation is recorded as failed, the host MUST complete the return to the confirmed generation under R015 and MUST NOT start the failed generation;
+5. when a stop is recorded, the host MUST stay stopped, MUST NOT start any generation or run a health check, and MUST report the stop as R016 requires, until a new desired set or an operator action arrives; a new desired set or an operator action ends the recorded stop.
 
 **[HCS-0008-R034]** A host that removes old generations MUST keep the active, the pending and the confirmed generation and MUST keep every failed record; it MAY remove the content of a failed generation.
 
-**[HCS-0008-R035]** When a host cannot complete a return to the confirmed generation because it cannot change which generation is active, or because there is none to return to, it MUST NOT start an engine run from the failed generation, MUST stop, and MUST report as R016 requires, until a new desired set or an operator action arrives.
+**[HCS-0008-R035]** When a host cannot complete a return to the confirmed generation because it cannot change which generation is active, or because there is none to return to, it MUST NOT start an engine run from the failed generation, MUST durably record the stop, MUST stop, and MUST report as R016 requires, until a new desired set or an operator action arrives. A host that stops under R016 records the stop in the same way.
 
-R031 to R033 are UAPI.1 boot counting with one try ([uapi-boot-counting.md](../docs/standards/uapi-boot-counting.md)), where the counter lives on disk: a host cannot forget a failure by restarting, and cannot confirm a generation it never checked. The order of writes is: (1) record pending and confirmed; (2) change the active pointer; (3) health check; (4a) on success record confirmed = pending and clear pending, or (4b) on failure record failed, change the pointer back, clear pending. A crash between any two steps is handled by R033: after (1) alone, item 2; after (2), item 1; after the failed mark of (4b) but before the pointer change, item 4; with no pending record at all but a new active generation, item 3. When the active generation is recorded as failed, item 4 takes precedence over item 1.
+R031 to R033 are UAPI.1 boot counting with one try ([uapi-boot-counting.md](../docs/standards/uapi-boot-counting.md)), where the counter lives on disk: a host cannot forget a failure by restarting, and cannot confirm a generation it never checked. The order of writes is: (1) record pending and confirmed; (2) change the active pointer; (3) health check; (4a) on success record confirmed = pending and clear pending, or (4b) on failure record failed, change the pointer back, clear pending. A crash between any two steps is handled by R033: after (1) alone, item 2; after (2), item 1; after the failed mark of (4b) but before the pointer change, item 4; with no pending record at all but a new active generation, item 3; after a stop was recorded, item 5, which outranks the others so that a restart cannot turn a stop into a loop. When the active generation is recorded as failed, item 4 takes precedence over item 1.
 
 Marks are small and permanent: identifiers are never reused (R032), so a failed record needs no lifetime. A host that bounds the set of marks MUST NOT allow an identifier to be reused. A host with no records, for example one that persisted nothing before this section, finds its active generation under item 3, health-checks it once and confirms or fails it; it has no confirmed generation to return to, so a failing check ends in R035. A host that can vouch for its current active generation SHOULD seed `confirmed` with it when it first records facts.
 
