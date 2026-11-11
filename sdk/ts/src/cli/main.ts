@@ -114,7 +114,8 @@ function writeOutput(io: CliIo, path: string, data: string | Uint8Array, force: 
 
 function parseJsonText(text: string, what: string): unknown {
   const parsed = parseStrictJson(text);
-  if (!parsed.ok) throw new CliFailure(...hcsLines(parsed.errors));
+  // Fixed text: parser messages can quote the input, and the input may be a misplaced private key.
+  if (!parsed.ok) throw new CliFailure(`${parsed.errors[0]?.code ?? 'manifest_invalid'}: ${what} is not valid JSON`);
   return parsed.value;
 }
 

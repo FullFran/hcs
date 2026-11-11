@@ -145,6 +145,18 @@ test('sign-keys reports a malformed key set as manifest_invalid', async () => {
   assert.equal(existsSync(p('out.json')), false);
 });
 
+test('a file that is not JSON is reported without echoing its contents', async () => {
+  await publishKeys();
+  write('seed.txt', 'SECRETSEEDabcdefghijklmnop');
+  const keys = await run('sign-keys', '--in', 'seed.txt', '--signer', 'root-1=root.pem', '--out', 'out.json');
+  assert.equal(keys.code, 1); assert.match(keys.err, /^manifest_invalid: key set is not valid JSON/);
+  assert.equal((keys.out + keys.err).includes('SECRET'), false);
+  const catalog = await run('sign-catalog', '--catalog', 'seed.txt', '--sequence', '1', '--expires', '2026-11-13T00:00:00Z', '--binding', 'tenant=t',
+    '--signer', 'online-1=online.pem', '--out', 'signed.json');
+  assert.equal(catalog.code, 1);
+  assert.equal((catalog.out + catalog.err).includes('SECRET'), false);
+});
+
 test('a private key file readable by group or others is refused', async () => {
   await publishKeys();
   chmodSync(p('root.pem'), 0o644);
