@@ -54,7 +54,7 @@ Number spelling, a duplicated member name and an unpaired surrogate (HCS-0007 se
 
 - At `document` level it replaces `input`; `input` is then absent.
 - At `distribution` level `input` keeps every other member and `documentBase64` replaces `input.envelope` (`check: envelope`) or `input.keySet` (`check: key-set`).
-- A runner decodes the base64, parses the bytes as strict JSON text (invalid UTF-8, a syntax error, a duplicated member name, an unpaired surrogate and a number spelled other than `-?(0|[1-9][0-9]*)` are `manifest_invalid`), and only then continues as with a parsed document. The reference does this where the document is first read: the key set is read before the envelope.
+- A runner decodes the base64 and reads the bytes in the order of HCS-0007 section 5.2: first the text must be readable (invalid UTF-8, a syntax error, a duplicated member name and an unpaired surrogate are `manifest_invalid`, R003); then `hcsVersion` (another version is `unsupported_hcs_version`, whatever else is wrong); then a number not spelled `-?(0|[1-9][0-9]*)` or outside the safe range (`manifest_invalid`, R004); then it continues as with a parsed document. The reference does this where the document is first read: the key set is read before the envelope.
 - Base64 of the bytes was chosen over a JSON string because the case file is itself JSON: an unpaired surrogate cannot be a string value in every tool, a pretty-printer or a loader may merge a duplicated member name or rewrite `1.0`, and bytes are what a host receives. It is the same encoding as `contentBase64` at the integrity level. The text may use JSON escapes (`\ud800`), so a case stays easy to regenerate and to decode by hand: `base64 -d`.
 - Existing cases have no `documentBase64` and are unchanged.
 

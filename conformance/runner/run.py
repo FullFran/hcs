@@ -92,13 +92,22 @@ def check_catalog(doc):
     return errors
 
 
-def check_document(target, doc, limits=None):
-    """limits: optional host bounds {"maxKeys", "maxSignatures"} (HCS-0007-R023)."""
+def check_document(target, doc, limits=None, violation=None):
+    """limits: optional host bounds {"maxKeys", "maxSignatures"} (HCS-0007-R023).
+
+    violation: the number-token violation (R004) found in the received text, if any. Order for an
+    envelope or key set (HCS-0007 section 5.2): hcsVersion, R004, shape, repeated key keyid (R002),
+    R022, R023.
+    """
     if target == CATALOG:
+        if violation:
+            raise ValueError("textual catalogs are not supported")
         return check_catalog(doc)
     if target in (ENVELOPE, KEY_SET) and isinstance(doc, dict) and isinstance(doc.get("hcsVersion"), str) \
             and doc["hcsVersion"] not in SUPPORTED_HCS:
         return [err("unsupported_hcs_version")]
+    if violation:
+        return [err("manifest_invalid")]
     if not schema_valid(target, doc):
         return [err("manifest_invalid")]
     if target == KEY_SET and len({k["keyid"] for k in doc["keys"]}) != len(doc["keys"]):
@@ -289,11 +298,16 @@ def extract_hcs_error(inp):
 # ---------- distribution level (HCS-0007) ----------
 
 def parse_received(data):
-    """(document, errors): the received bytes parsed strictly (HCS-0007 R003, R004); the error never quotes them."""
+    """(document, errors, number violation): the received bytes read strictly (HCS-0007 R003, R004).
+
+    Unreadable bytes give manifest_invalid at once (stage 1). A number violation is returned for
+    check_document to report after the version has been read (stage 2); errors never quote the bytes.
+    """
     try:
-        return distro1.parse_text(data), []
+        value, violation = distro1.parse_text(data)
+        return value, [], violation
     except distro1.StrictJsonError:
-        return None, [err("manifest_invalid")]
+        return None, [err("manifest_invalid")], None
 
 
 def run_distribution(inp, document=None):
@@ -312,23 +326,23 @@ def run_distribution(inp, document=None):
     now, anchor = inp["now"], inp["trustAnchor"]
     if not schema_valid(SIGNED + "#/$defs/trustAnchor", anchor):
         raise ValueError("trust anchor does not match its schema")
-    key_set = inp.get("keySet")
+    key_set, violation = inp.get("keySet"), None
     if document is not None and check == "key-set":
-        key_set, errors = parse_received(document)
+        key_set, errors, violation = parse_received(document)
         if errors:
             return errors, None
-    errors = check_document(KEY_SET, key_set, limits)
+    errors = check_document(KEY_SET, key_set, limits, violation)
     if errors:
         return errors, None
     code = distro1.check_key_set(key_set, anchor, inp.get("lastKeySet"), now)
     if code or check == "key-set":
         return ([err(code)] if code else []), None
-    envelope = inp.get("envelope")
+    envelope, violation = inp.get("envelope"), None
     if document is not None:
-        envelope, errors = parse_received(document)
+        envelope, errors, violation = parse_received(document)
         if errors:
             return errors, None
-    errors = check_document(ENVELOPE, envelope, limits)
+    errors = check_document(ENVELOPE, envelope, limits, violation)
     if errors:
         return errors, None
     code = distro1.check_envelope(envelope, key_set, inp["assignment"], inp.get("lastAccepted"), now)
@@ -349,11 +363,11 @@ def run_case(case, polarity="valid"):
     if level == "host":
         return "pending", None
     if level in ("document", "integrity"):
-        errors = []
-        if document is not None:  # the received text first: no canonical form means no document
-            inp, errors = parse_received(document)
+        errors, violation = [], None
+        if document is not None:  # the received text first: an unreadable document has no hcsVersion
+            inp, errors, violation = parse_received(document)
         if not errors:
-            errors = check_document(case["target"], inp) if level == "document" else check_integrity(inp)
+            errors = check_document(case["target"], inp, violation=violation) if level == "document" else check_integrity(inp)
         outcome = "invalid" if errors else "valid"
         ok = outcome == exp["outcome"] and ("errors" not in exp or norm(errors) == norm(exp["errors"]))
         return ("pass" if ok else "fail"), {"outcome": outcome, "errors": errors}

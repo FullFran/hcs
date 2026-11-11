@@ -460,14 +460,14 @@
       "id": "HCS-0007-R001",
       "document": "HCS-0007",
       "keyword": "MUST",
-      "text": "A host MUST check an envelope's `hcsVersion` and then its shape against the HCS-0007 envelope schema before verifying any signature, reporting `unsupported_hcs_version` or `manifest_invalid` as HCS-0001-R002 and HCS-0001-R001 do for catalogs.",
+      "text": "A host MUST check an envelope's `hcsVersion` once the document is readable, and then its number spelling (R004) and its shape against the HCS-0007 envelope schema, all before verifying any signature, reporting `unsupported_hcs_version` or `manifest_invalid` as HCS-0001-R002 and HCS-0001-R001 do for catalogs.",
       "source": "spec/HCS-0007-signed-catalog.md"
     },
     {
       "id": "HCS-0007-R002",
       "document": "HCS-0007",
       "keyword": "MUST",
-      "text": "A host MUST check a key set's `hcsVersion` before its shape and report `unsupported_hcs_version` when it is not supported, as R001 requires for envelopes; a key set MUST then validate against the HCS-0007 key set schema and MUST NOT list two keys with the same `keyid`, and a host MUST report `manifest_invalid` otherwise.",
+      "text": "A host MUST check a key set's `hcsVersion` once the document is readable, before its number spelling and its shape, and report `unsupported_hcs_version` when it is not supported, as R001 requires for envelopes; a key set MUST then validate against the HCS-0007 key set schema and MUST NOT list two keys with the same `keyid`, and a host MUST report `manifest_invalid` otherwise.",
       "source": "spec/HCS-0007-signed-catalog.md"
     },
     {

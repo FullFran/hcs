@@ -330,6 +330,28 @@ def textual_cases(add):
     shapeless = {k: v for k, v in ks.items() if k != "keys"}
     add("HCS-0007-R002", "invalid", "text-key-set-version-before-shape", "hcsVersion 0.2 and no keys: the version is read before the shape.", "distribution",
         ks_input(None), bad("unsupported_hcs_version"), text=respell(shapeless, '"hcsVersion":"0.1"', '"hcsVersion":"0.2"'))
+    # Reading order (section 5.2): readable, then hcsVersion, then R004, shape, R022, R023.
+    v2 = ('"hcsVersion":"0.1","sequence"', '"hcsVersion":"0.2","sequence"')
+    e_v2 = respell(plain, *v2)
+    add("HCS-0007-R001", "invalid", "text-other-version-with-fraction", "hcsVersion 0.2 and a fraction: the version is read first, so unsupported_hcs_version, not manifest_invalid.", "distribution",
+        textual_envelope_input(), bad("unsupported_hcs_version"), text=e_v2.replace(b'"x-example-n":1,', b'"x-example-n":1.5,'))
+    add("HCS-0007-R001", "invalid", "text-other-version-with-repeated-keyid", "hcsVersion 0.2 and a repeated signature keyid: unsupported_hcs_version.", "distribution",
+        textual_envelope_input(), bad("unsupported_hcs_version"),
+        text=compact(dict(json.loads(e_v2), signatures=plain["signatures"] * 2)).encode())
+    add("HCS-0007-R003", "invalid", "text-other-version-with-duplicate-name", "hcsVersion 0.2 and a duplicated member name: the document is not readable, so manifest_invalid.", "distribution",
+        textual_envelope_input(), bad("manifest_invalid"), text=e_v2.replace(b'"x-example-n":1,', b'"x-example-n":1,"x-example-n":1,'))
+    add("HCS-0007-R004", "invalid", "text-fraction", "hcsVersion 0.1 and 1.5: manifest_invalid for the number.", "distribution",
+        textual_envelope_input(), bad("manifest_invalid"), text=respell(plain, '"x-example-n":1,', '"x-example-n":1.5,'))
+    add("HCS-0007-R004", "invalid", "text-beyond-safe-range", "The plain integer 9007199254740992 is outside the range: R004, as for a spelling.", "distribution",
+        textual_envelope_input(), bad("manifest_invalid"), text=respell(plain, '"x-example-n":1,', '"x-example-n":9007199254740992,'))
+    ks_v2 = respell(ks, '"hcsVersion":"0.1"', '"hcsVersion":"0.2"')
+    add("HCS-0007-R002", "invalid", "text-key-set-other-version-with-fraction", "A key set with hcsVersion 0.2 and version 3.5: unsupported_hcs_version.", "distribution",
+        ks_input(None), bad("unsupported_hcs_version"), text=ks_v2.replace(b'"version":3,', b'"version":3.5,'))
+    add("HCS-0007-R003", "invalid", "text-key-set-other-version-with-duplicate-name", "A key set with hcsVersion 0.2 and a duplicated member name: manifest_invalid.", "distribution",
+        ks_input(None), bad("manifest_invalid"), text=ks_v2.replace(b'"version":3,', b'"version":3,"version":3,'))
+    add("HCS-0007-R004", "invalid", "text-key-set-fraction", "A key set with hcsVersion 0.1 and version 3.5: manifest_invalid for the number.", "distribution",
+        ks_input(None), bad("manifest_invalid"), text=respell(ks, '"version":3,', '"version":3.5,'))
+
     add("HCS-0007-R002", "invalid", "text-key-set-no-keys-same-version", "No keys with the supported version stays manifest_invalid.", "distribution",
         ks_input(None), bad("manifest_invalid"), text=compact(shapeless).encode())
 
