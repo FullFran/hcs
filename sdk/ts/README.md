@@ -16,6 +16,8 @@ Distribution-specific behaviour (extension kinds, detail-key prefixes, permissio
 
 `buildPackage(dir)` returns `bytes`, compressed `contentHash` / `size`, `mediaType`, and `contentId` (SHA-256 of the exact uncompressed tar stream). Pass the expected entry from a verified catalog to `verifyPackage`, `unpackPackage` or `packageRequests`; when `contentId` is present, they verify transport first, bound decompression and verify that identity before using package content. Extraction retains its member, payload and unsafe-member checks. The default whole-tar bound is 256 MiB + 10,000 × 1,023 + 1,024 bytes; `unpackPackage` derives its bound from the supplied `maxBytes` / `maxMembers`.
 
+Streaming verification (`src/blob.ts`): `verifyBlobStream`, `collectVerifiedBlob` and `verifyingTransform` check an async byte source against a `{ digest, size }` descriptor (the same `digest` / `size` pair as an OCI descriptor; `PackageExpected` maps to it as `contentHash` / `size`). Bytes are counted and hashed incrementally, and reading stops and the source is closed at the first byte beyond the declared `size`, so an over-long download is never fully read or hashed. Size and digest violations throw `HcsFailure` `integrity_mismatch` (HCS-0001-R007); an invalid descriptor `size` throws `RangeError`. `fetchPackageBytes` uses it for downloads and for content-addressed store hits, and tries the next location when one fails integrity. The order is fixed: transport (size and digest) first, then `contentId` on the verified bytes; streaming does not make `contentId` checkable first.
+
 Without `contentId`, `verifyPackage` remains transport-only (it does not require valid gzip); extraction and permission reading still decompress as before. Missing identity means unknown, not equal. Identity covers headers, order, metadata, padding and terminators, not just file contents. No tar canonicalization, cache-key change or grant reuse is introduced. Consumers, not the hash, supply authority: DISTRO-1's signed catalog binds `contentId` to the entry and transport identity.
 
 Older closed-schema catalog validators reject `contentId`; this draft addition does **not** promise compatibility. Upgrade consumers before emitting it, or publish a separately signed legacy catalog without the member. Removing it from an already signed envelope invalidates that signature. See [HCS-0001 section 3.5](../../spec/HCS-0001-catalog-manifest.md#35-optional-uncompressed-content-identity).
@@ -30,6 +32,7 @@ Older closed-schema catalog validators reject `contentId`; this draft addition d
 | `src/extensions.ts` | HCS-0000 (extension members) | RE;write 7e9e903 `src/hcs/extensions.ts` |
 | `src/catalog.ts` | HCS-0001 | RE;write 7e9e903 `src/hcs/catalog.ts` |
 | `src/tar.ts` | HCS-0001 (package archive) | RE;write 7e9e903 `src/hcs/tar.ts` |
+| `src/blob.ts` | HCS-0001 (R007) | written from the spec |
 | `src/package.ts` | HCS-0001 (R007, R012) | RE;write 7e9e903 `src/hcs/package.ts` |
 | `src/resolve.ts` | HCS-0003 | RE;write 7e9e903 `src/hcs/resolve.ts` |
 | `src/lifecycle.ts` | HCS-0004 | RE;write 7e9e903 `src/hcs/lifecycle.ts` |

@@ -5,6 +5,7 @@ export * from './version.ts';
 export * from './extensions.ts';
 export * from './catalog.ts';
 export * from './tar.ts';
+export * from './blob.ts';
 export * from './package.ts';
 export * from './resolve.ts';
 export * from './lifecycle.ts';
