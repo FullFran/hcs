@@ -15,6 +15,8 @@
 - **Probes.** The kubelet runs three kinds of diagnostic on a container: a startup probe (runs only at start; liveness and readiness wait until it succeeds; on failure the container is killed and its restart policy applies), a liveness probe (restart when it fails more than the configured tolerance), and a readiness probe (stop routing traffic while it fails). A probe is a command, a TCP connection, a gRPC health call or an HTTP GET; for HTTP, any status from 200 to 399 is success.
 - **Projected configuration.** A ConfigMap mounted as a volume is updated "eventually" when the ConfigMap changes; consumed as environment variables or through `subPath`, it is not updated until the pod restarts. The kubelet's `AtomicWriter` "atomically projects" a set of files by writing a new timestamped directory and switching a `..data` symlink to it, so a reader sees either the old or the new set, never a mix.
 
+The relation between health probes and deployment strategy (how readiness gates a rolling update, `minReadySeconds`, `progressDeadlineSeconds`, `maxUnavailable`) is outside what this note pins. Kubernetes documents it in the Deployment concept page, sections "Progressing Deployment", "Failed Deployment", "Min Ready Seconds" and "Progress Deadline Seconds": https://github.com/kubernetes/website/blob/380372f60632ed7ce70516ecaaab4710ffb8703a/content/en/docs/concepts/workloads/controllers/deployment.md (sections located 2026-11-11, not summarized here).
+
 ## Where HCS references it instead of redefining
 
 - HCS-0008 health check: "the engine started from this generation" is the startup probe, and "passed the health check" is the first success after it. HCS does not prescribe probe types or thresholds; the host declares them.

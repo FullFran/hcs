@@ -27,6 +27,8 @@ A file-system format for packaging procedural knowledge for agents. A skill is a
 - File references: relative paths from the skill root, kept one level deep.
 - `skills-ref` (Python): `skills-ref validate`, `read-properties` (JSON), `to-prompt` (generates an `<available_skills>` XML block with `name`, `description`, `location`).
 
+- Precedence of skill text against user (or system) instructions: the specification is silent. At the pinned commit `docs/specification.mdx` (headings: Directory structure, `SKILL.md` format, Optional directories, Progressive disclosure, File references, Validation; read 2026-11-11) says nothing about which wins on conflict or how much trust skill content receives. That is a host decision; HCS-0005 treats `allowed-tools` as a request, not a grant (below).
+
 ## Extension points
 
 - `metadata` is the only sanctioned place for extra properties; the spec recommends reasonably unique keys.
