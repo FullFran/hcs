@@ -3,6 +3,7 @@
 
 Usage:
   python3 conformance/runner/run.py [--report PATH] [--selftest] [-v]
+  python3 conformance/runner/run.py [options] --sut COMMAND [ARG...]   (external system under test: see sut.py)
 
 It validates every case in conformance/cases against conformance/case.schema.json, executes
 document/integrity/resolution/authority/distribution/projection/recovery/client cases with the reference semantics below
@@ -384,6 +385,9 @@ def selftest():
 
 
 def main(argv):
+    if "--sut" in argv:  # external system under test: conformance/runner/sut.py
+        import sut
+        return sut.main(argv, sys.modules[__name__])
     if "--selftest" in argv:
         selftest()
         distro1.selftest()
