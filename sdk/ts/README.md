@@ -42,6 +42,7 @@ Older closed-schema catalog validators reject `contentId`; this draft addition d
 | `src/host.ts` | HCS-0003 (host profile) | RE;write 7e9e903 `src/hcs/host.ts` |
 | `src/signing/` (exported as `signing`) | HCS-0007 (DISTRO-1) | written from the spec and `conformance/runner/distro1.py` |
 | `src/projection/` (exported as `projection`) | HCS-0008 (host adapter), host lock (SDK extension) | written from the spec and `conformance/runner/projection.py` |
+| `src/mcp-server.ts` | HCS-0008 (R010, R011) | written from the spec and `conformance/runner/projection.py` |
 
 ## Projection (HCS-0008)
 
@@ -50,6 +51,8 @@ Older closed-schema catalog validators reject `contentId`; this draft addition d
 - `kinds`: the contribution kinds the adapter can project. Any other kind, core or extension (`x-...`), is reported `unsupported_contribution` (R004) without special cases.
 - `project(contribution, context)`: pure; returns the engine-level names it touches (`settings`, each with an `effect`: `add`, `replace`, `remove`, `widen`, `narrow`, and an optional permission `level`), the secret inputs it needs, an optional `identity` (for an MCP server, its `server.json` `name`), and a fragment of files (relative to the run directory, literal or a link into the generation), arguments and environment. Or a refusal with `manifest_invalid`, `unsupported_contribution` or `permission_denied`, checked in the order of HCS-0008 6.4.1. Literal delivery of MCP values (R030) is the adapter's job.
 - `assemble(projected, context)` (optional): runs once over the contributions of the selected entries, for engine files that combine several of them.
+
+An adapter for `mcp-server` contributions does not need its own `server.json` walk. `checkServerJson(doc, detailPrefix?)` checks the members HCS requires (`name`, `description` and `version` are strings; `packages` and `remotes` are arrays when present; R010) and that no secret input carries a `value` or a `default` (R011, read strictly: a templated value is a value too). It returns `manifest_invalid` errors with a JSON Pointer to the input and never echoes a value. It is not validation against the MCP Registry schema, which stays with the adapter (ADR 0017). `readServerJson` throws those errors as `HcsFailure` or returns the server `name` and every input (`environment`, `header`, `argument` or `variable`, with `isRequired` and `isSecret`), and `serverJsonSecretInputs(report)` turns that report into the `secrets` an adapter returns from `project`.
 
 The core then applies, in order: missing required secret grants (`permission_denied`, R012), the host lock allow-lists, host-owned settings and permission ceilings (`permission_denied`, R007; narrowing is allowed), and collisions of engine-level names, run files or environment variables between entries (`ambiguous_provider` for every entry involved, R006). `selected` follows the activation policy: under `all-or-nothing` only a real failure empties it, never `unsupported_contribution` (R005, R017). Each contribution ends `projected`, `reported` or `withheld` (projectable, but its entry was not selected). Only selected entries reach the plan.
 

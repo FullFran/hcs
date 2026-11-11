@@ -7,28 +7,19 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkServerJson, readServerJson, serverJsonSecretInputs } from '../../src/mcp-server.ts';
 import { projectGeneration, type ContributionProjection, type EngineAdapter, type ProjectionContribution, type SecretInput, type SecretRef, type Setting } from '../../src/projection/index.ts';
 
 const CASES = fileURLToPath(new URL('../../../../conformance/cases/', import.meta.url));
 type Json = Record<string, any>;
 type Err = { code: string; entry?: string; capability?: string };
 
-const SERVER_REQUIRED = ['name', 'description', 'version'];
 // HCS-0001-R005 relative path plus no empty segment (HCS-0008-R021), as in runner/projection.py.
 const RELATIVE_PATH = /^(?!\/)(?!.*\\)(?!(?:.*\/)?\.\.(?:\/|$))(?!.*\/\/)(?!.*\/$)[^\x00]+$/s;
 
 function* withVariables(name: string | undefined, item: Json): Generator<[string | undefined, Json]> {
   yield [name, item];
   for (const [vname, variable] of Object.entries(item.variables ?? {})) yield [vname, variable as Json];
-}
-function* inputs(descriptor: Json): Generator<[string | undefined, Json]> {
-  for (const pkg of descriptor.packages ?? []) {
-    for (const key of ['environmentVariables', 'runtimeArguments', 'packageArguments']) for (const item of pkg[key] ?? []) yield* withVariables(item.name ?? item.valueHint, item);
-  }
-  for (const remote of descriptor.remotes ?? []) {
-    for (const item of remote.headers ?? []) yield* withVariables(item.name, item);
-    for (const [name, item] of Object.entries(remote.variables ?? {})) yield [name, item as Json];
-  }
 }
 const normalise = (path: string) => path.split('/').filter(segment => segment !== '.').join('/');
 
@@ -56,16 +47,12 @@ export function referenceAdapter(kinds: string[], runtimes: Record<string, strin
         return { ok: true, settings: [{ name: `skill/${name}`, effect: 'add' }], fragment: { files: [{ path: `skills/${encodeURIComponent(name)}`, link: join(ctx.entry.root, String(c.path ?? `skills/${name}`)) }] } };
       }
       if (c.kind === 'mcp-server') {
-        const descriptor = c.descriptor as Json | undefined;
-        if (typeof descriptor !== 'object' || descriptor === null || Array.isArray(descriptor) || SERVER_REQUIRED.some(k => typeof descriptor[k] !== 'string')) {
-          return { ok: false, code: 'manifest_invalid', message: 'server.json lacks a required member', requirement: 'HCS-0008-R010' };
-        }
-        if ([...inputs(descriptor)].some(([, item]) => item.isSecret && ('value' in item || 'default' in item))) {
-          return { ok: false, code: 'manifest_invalid', message: 'secret input with a value or default', requirement: 'HCS-0008-R011' };
-        }
+        const [invalid] = checkServerJson(c.descriptor);
+        if (invalid) return { ok: false, code: 'manifest_invalid', message: invalid.message, requirement: invalid.requirement };
+        const descriptor = c.descriptor as Json;
         const code = checkFilePackage(descriptor, new Set((c.files as string[] | undefined) ?? []), runtimes);
         if (code) return { ok: false, code, message: `file package refused (${code})`, requirement: code === 'manifest_invalid' ? 'HCS-0008-R021' : 'HCS-0008-R023' };
-        const secrets: SecretInput[] = [...inputs(descriptor)].filter(([name, item]) => item.isSecret && name !== undefined).map(([name, item]) => ({ input: name!, required: Boolean(item.isRequired) }));
+        const secrets: SecretInput[] = serverJsonSecretInputs(readServerJson(descriptor));
         const env = Object.fromEntries(secrets.flatMap(s => { const ref = ctx.secretEnv(s.input); return ref ? [[s.input, `\${${ref}}`]] : []; }));
         return { ok: true, identity: descriptor.name, secrets, settings: [{ name: `mcp/${descriptor.name}`, effect: 'add' }],
           fragment: { files: [{ path: `mcp/${encodeURIComponent(descriptor.name)}.json`, content: JSON.stringify({ name: descriptor.name, env }) }] } };
