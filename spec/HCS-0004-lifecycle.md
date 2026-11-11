@@ -72,6 +72,6 @@ A host that emits telemetry for lifecycle transitions SHOULD use OpenTelemetry a
 - OQ-0004-1: deadlines per step and whether the catalog can suggest them.
 - OQ-0004-2: drain semantics (wait for in-flight calls, cancel them, or a deadline then cancel). MCP 2026-07-28 has no resumable streams, so cancellation loses in-flight work.
 - OQ-0004-3: lifecycle event names and whether they are CloudEvents types ([docs/standards/cloudevents.md](../docs/standards/cloudevents.md)).
-- OQ-0004-4: state persistence across host restarts.
+- OQ-0004-4: persistence of per-entry state across host restarts. Which generation a host starts and what it remembers about failed ones is closed by HCS-0008 section 7.1 (R031 to R035).
 - OQ-0004-5: a `failed` entry's recovery path (retry versus a new desired set).
 - OQ-0004-6: out-of-band modification of a prepared or active entry's content (someone edited installed files). The first host detects it and stops reconciling until an operator intervenes; whether HCS defines the condition, its error code, and the host's duty, is open ([ADR-0014](../docs/adr/0014-profile-error-codes-join-the-core-registry.md)).

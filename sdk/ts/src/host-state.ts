@@ -395,9 +395,15 @@ async function transition(catalogBytes: Uint8Array | string, options: ApplyOptio
   for (const item of oldEntries) if (item.status.state === 'active') stoppedOld.push(item);
 
   const started: { entry: CatalogEntry; status: EntryStatus }[] = [];
+  // HCS-0008-R031: the generation being tried and the one to return to are on disk before the pointer moves.
+  // A host with no records yet vouches for the generation it is leaving (section 7.1).
+  const records: Records = readRecords(stateDir) ?? { confirmed: previous.generation, pending: null, failed: [] };
+  let moved = false;
   let ok = await stopAll(oldEntries, false);
   if (ok) {
+    writeRecords(stateDir, { ...records, pending: n });
     writeAtomic(stateDir, 'active', { generation: n });
+    moved = true;
     view.generation = n; view.entries = selected.map(e => statuses.get(e.id)!); view.save();
     for (const e of selected) {
       const status = statuses.get(e.id)!;
@@ -409,14 +415,20 @@ async function transition(catalogBytes: Uint8Array | string, options: ApplyOptio
     }
   }
   if (ok) {
+    writeRecords(stateDir, { ...records, confirmed: n, pending: null });
     view.extras = []; view.save();
     return { generation: n, status: statusReport(stateDir) };
   }
+
+  // HCS-0008-R032: the failed mark is durable before anything is started from the previous generation.
+  const marked: Records = moved ? { ...records, pending: n, failed: [...new Set([...records.failed, n])].sort((a, b) => a - b) } : records;
+  if (moved) writeRecords(stateDir, marked);
 
   // Roll back (HCS-0004-R003): stop what this transition started, restore the pointer, restart the previous set.
   await stopAll(started, true);
   if (previous.generation === null) rmSync(join(stateDir, 'active'), { force: true });
   else writeAtomic(stateDir, 'active', { generation: previous.generation });
+  if (moved) writeRecords(stateDir, { ...marked, pending: null });
   view.generation = previous.generation; view.entries = oldEntries.map(o => o.status); view.extras = selected.map(e => statuses.get(e.id)!).filter(s => s.state === 'failed'); view.save();
   for (const { entry, status } of stoppedOld) {
     if (status.state !== 'stopped') continue;
@@ -428,3 +440,144 @@ async function transition(catalogBytes: Uint8Array | string, options: ApplyOptio
   }
   throw new HcsFailure(errors);
 }
+// ---- Crash-safe generation switch and persisted failure marks (HCS-0008 section 7.1) ----
+
+// The facts a host reconstructs after a restart, as generation ids. `active` is the pointer; the other three
+// are the records file. No file format is implied by HCS; this one is internal to the SDK.
+export interface HostFacts { active: number | null; confirmed: number | null; pending: number | null; failed: number[] }
+export type RecoveryAction = 'start' | 'health-check' | 'discard-pending' | 'return' | 'stop-and-report';
+export interface RecoveryPlan { action: RecoveryAction; generation: number | null; returnTo: number | null; retain: number[]; failed: number[] }
+
+const RECORDS = 'generation-records.json';
+interface Records { confirmed: number | null; pending: number | null; failed: number[] }
+
+const generationId = (value: unknown): number | null => Number.isSafeInteger(value) && (value as number) > 0 ? value as number : null;
+
+// Undefined when the host never recorded these facts (state written before this section existed).
+function readRecords(stateDir: string): Records | undefined {
+  const saved = readJson(join(stateDir, RECORDS)) as { confirmed?: unknown; pending?: unknown; failed?: unknown } | undefined;
+  if (!saved) return undefined;
+  const failed = Array.isArray(saved.failed) ? saved.failed.filter(g => generationId(g) !== null) as number[] : [];
+  return { confirmed: generationId(saved.confirmed), pending: generationId(saved.pending), failed: [...new Set(failed)].sort((a, b) => a - b) };
+}
+const writeRecords = (stateDir: string, records: Records): void => writeAtomic(stateDir, RECORDS, records);
+
+export function readHostFacts(stateDir: string): HostFacts {
+  const records = readRecords(stateDir) ?? { confirmed: null, pending: null, failed: [] };
+  return { active: activeGeneration(stateDir), ...records };
+}
+
+function generationsOnDisk(stateDir: string): number[] {
+  try { return readdirSync(generationsDir(stateDir)).filter(name => /^[1-9][0-9]*$/.test(name)).map(Number).sort((a, b) => a - b); }
+  catch (error: any) { if (error.code === 'ENOENT') return []; throw error; }
+}
+
+// What a host does after a restart, from its persisted facts alone (HCS-0008-R033), and the generations a
+// cleanup must keep (R034). Mirrors conformance/runner/recovery.py. A failed generation is never started (R032),
+// so item 4 outranks item 1. `health-check` is for the caller to run: the check is host-defined (R013).
+export function planRecovery(facts: HostFacts, onDisk: readonly number[] = []): RecoveryPlan {
+  const { active, confirmed, pending } = facts;
+  const failed = [...new Set(facts.failed)].sort((a, b) => a - b);
+  const present = new Set(onDisk);
+  const retain = [...new Set([active, pending, confirmed].filter((g): g is number => g !== null && present.has(g)))].sort((a, b) => a - b);
+  const canReturn = confirmed !== null && confirmed !== active && !failed.includes(confirmed);
+  const plan = (action: RecoveryAction, generation: number | null): RecoveryPlan => ({ action, generation, returnTo: confirmed, retain, failed });
+  if (active === null) return pending !== null ? plan('discard-pending', pending) : plan('start', null);
+  if (failed.includes(active)) return plan(canReturn ? 'return' : 'stop-and-report', active);
+  if (pending === active) return plan('health-check', active);
+  if (pending !== null) return plan('discard-pending', pending);
+  if (active !== confirmed) return plan('health-check', active);
+  return plan('start', active);
+}
+
+export interface RecoveryOptions {
+  stateDir: string;
+  // The host's health check of the engine run started from a generation (HCS-0008-R013); true when it passes.
+  // Without it recovery returns the decision of R033 items 1 and 3 and confirms nothing.
+  healthCheck?: (generation: number, signal: AbortSignal) => Promise<boolean>;
+  stepDeadlineMs?: number;
+}
+export interface RecoveryResult {
+  action: RecoveryAction;
+  // The generation the host runs from when recovery ends (the pointer).
+  active: number | null;
+  // A pending record that was discarded (R033 item 2).
+  discarded: number | null;
+  // Why the host stopped (R016, R035), or null. The host starts nothing until a new desired set or an operator action.
+  stopped: 'no-confirmed' | 'pointer-unmovable' | 'return-failed' | null;
+  // The failures to report as R015 requires: `plugin_failed` or `timeout`.
+  errors: HcsError[];
+}
+
+// Completes what a restart finds half done (HCS-0008-R033), under the host lock. The health check is the
+// caller's; one failed generation is returned from once (R015) and never started again (R032).
+export async function recoverHostState(options: RecoveryOptions): Promise<RecoveryResult> {
+  const release = acquireLock(options.stateDir);
+  try { return await recover(options); } finally { release(); }
+}
+
+async function recover(options: RecoveryOptions): Promise<RecoveryResult> {
+  const { stateDir } = options;
+  const deadline = options.stepDeadlineMs ?? DEFAULT_STEP_DEADLINE_MS;
+  const result: RecoveryResult = { action: 'start', active: null, discarded: null, stopped: null, errors: [] };
+  const check = async (generation: number): Promise<boolean> => {
+    const run = options.healthCheck!;
+    const step = await runStep(deadline, signal => run(generation, signal));
+    if (step.ok && step.value) return true;
+    result.errors.push(!step.ok && step.timeout
+      ? hcsError('timeout', `Health check of generation ${generation} exceeded the deadline`, { requirement: 'HCS-0008-R015' })
+      : hcsError('plugin_failed', step.ok ? `Health check of generation ${generation} failed` : `Health check of generation ${generation} failed: ${reason(step.error)}`, { requirement: 'HCS-0008-R015' }));
+    return false;
+  };
+  const finish = (action: RecoveryAction, stopped: RecoveryResult['stopped'] = null): RecoveryResult => {
+    result.action = action; result.stopped = stopped; result.active = activeGeneration(stateDir);
+    return result;
+  };
+  const records = (): Records => readRecords(stateDir) ?? { confirmed: null, pending: null, failed: [] };
+
+  let plan = planRecovery(readHostFacts(stateDir), generationsOnDisk(stateDir));
+  if (plan.action === 'discard-pending') {
+    result.discarded = plan.generation;
+    writeRecords(stateDir, { ...records(), pending: null });
+    plan = planRecovery(readHostFacts(stateDir), generationsOnDisk(stateDir));
+  }
+  let action = plan.action;
+  if (action === 'health-check') {
+    if (!options.healthCheck) return finish('health-check');
+    const generation = plan.generation!;
+    if (await check(generation)) {
+      writeRecords(stateDir, { ...records(), confirmed: generation, pending: null });
+      return finish('health-check');
+    }
+    // Record the failure before anything else happens (R032), then return from it.
+    const current = records();
+    writeRecords(stateDir, { ...current, failed: [...new Set([...current.failed, generation])].sort((a, b) => a - b) });
+    plan = planRecovery(readHostFacts(stateDir), generationsOnDisk(stateDir));
+    action = plan.action;
+  }
+  if (action === 'stop-and-report') {
+    writeRecords(stateDir, { ...records(), pending: null });
+    return finish(action, 'no-confirmed');
+  }
+  if (action === 'return') {
+    const target = plan.returnTo!;
+    try { writeAtomic(stateDir, 'active', { generation: target }); } catch { return finish(action, 'pointer-unmovable'); }
+    writeRecords(stateDir, { ...records(), pending: null });
+    // One engine run from the confirmed generation; if it fails too the host stops (R016) and does not roll back again.
+    if (options.healthCheck && !await check(target)) return finish(action, 'return-failed');
+  }
+  return finish(action);
+}
+
+// Removes generation directories the host no longer needs (HCS-0008-R034): it keeps the active, pending and
+// confirmed generations and every failed record, and removes the content of failed generations too.
+export function cleanupGenerations(stateDir: string): number[] {
+  const release = acquireLock(stateDir);
+  try {
+    const keep = new Set(planRecovery(readHostFacts(stateDir), generationsOnDisk(stateDir)).retain);
+    const removed = generationsOnDisk(stateDir).filter(n => !keep.has(n));
+    for (const n of removed) { unsealTree(generationDir(stateDir, n)); rmSync(generationDir(stateDir, n), { recursive: true, force: true }); }
+    return removed;
+  } finally { release(); }
+}
+

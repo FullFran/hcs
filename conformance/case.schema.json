@@ -13,7 +13,7 @@
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^HCS-[0-9]{4}-R[0-9]{3}$" }
     },
-    "level": { "enum": ["document", "integrity", "resolution", "authority", "distribution", "projection", "client", "host"] },
+    "level": { "enum": ["document", "integrity", "resolution", "authority", "distribution", "projection", "recovery", "client", "host"] },
     "target": { "type": "string", "description": "Schema URI the input is validated against (document level)." },
     "input": true,
     "expect": {
@@ -38,6 +38,11 @@
         "signingInput": { "type": "string", "description": "Expected HCS-0007 signature input as UTF-8 text (distribution level)." },
         "decision": { "$ref": "urn:hcs:schema:hcs-0005:authority:0.1#/$defs/decision" },
         "hcsError": { "description": "HCS error a client extracts, or null when the response carries none (client level).", "oneOf": [{ "type": "null" }, { "$ref": "urn:hcs:schema:hcs-0006:error:0.1" }] },
+        "action": { "enum": ["start", "health-check", "discard-pending", "return", "stop-and-report"], "description": "Action a host takes after a restart (recovery level)." },
+        "generation": { "type": ["integer", "null"], "description": "Generation the action is about (recovery level)." },
+        "returnTo": { "type": ["integer", "null"], "description": "Confirmed generation a failure returns to (recovery level)." },
+        "retain": { "type": "array", "items": { "type": "integer" }, "description": "Generations a cleanup must keep (recovery level)." },
+        "failed": { "type": "array", "items": { "type": "integer" }, "description": "Failed records a cleanup must keep (recovery level)." },
         "behaviour": { "type": "string", "description": "Expected host behaviour (host level)." }
       },
       "additionalProperties": false
@@ -51,6 +56,7 @@
     { "if": { "properties": { "level": { "const": "authority" } } }, "then": { "properties": { "expect": { "required": ["decision"] } } } },
     { "if": { "properties": { "level": { "const": "distribution" } } }, "then": { "properties": { "expect": { "anyOf": [{ "required": ["outcome"] }, { "required": ["signingInput"] }] } } } },
     { "if": { "properties": { "level": { "const": "projection" } } }, "then": { "properties": { "expect": { "required": ["errors", "selected"] } } } },
+    { "if": { "properties": { "level": { "const": "recovery" } } }, "then": { "properties": { "input": { "type": "object", "required": ["persisted"] }, "expect": { "required": ["action"] } } } },
     { "if": { "properties": { "level": { "const": "client" } } }, "then": { "properties": { "input": { "type": "object", "oneOf": [{ "required": ["problem"], "not": { "required": ["response"] } }, { "required": ["response"], "not": { "required": ["problem"] } }] }, "expect": { "required": ["hcsError"] } } } },
     { "if": { "properties": { "level": { "const": "host" } } }, "then": { "properties": { "expect": { "required": ["behaviour"] } } } }
   ]

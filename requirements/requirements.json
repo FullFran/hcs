@@ -803,7 +803,7 @@
       "id": "HCS-0008-R016",
       "document": "HCS-0008",
       "keyword": "MUST",
-      "text": "When the engine run started from the confirmed generation after a failure also fails its health check, a host MUST stop and report it, and MUST NOT start a further rollback or retry until a new desired set or an operator action arrives.",
+      "text": "When the engine run started from the confirmed generation after a failure also fails its health check, a host MUST stop and report it, and MUST NOT start a further rollback or retry until a new desired set or an operator action arrives. R035 applies when the host cannot return to the confirmed generation at all.",
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
@@ -811,6 +811,41 @@
       "document": "HCS-0008",
       "keyword": "SHOULD",
       "text": "A host that reports the health of an engine run SHOULD report one of the states `healthy`, `unhealthy` or `unknown`, and SHOULD report the failure itself with the codes of R015.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R031",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "Before a host changes which generation is active, it MUST durably record the generation it is moving to as pending and the confirmed generation it would return to.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R032",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "A host that reports a generation as failed under R015 MUST durably record it as failed before it starts the engine run from the confirmed generation, MUST NOT start a generation recorded as failed, including after a restart, and MUST NOT reuse the identifier of a generation recorded as failed for other content.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R033",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "After a restart, a host MUST decide what to start from its persisted facts alone, as follows, and MUST NOT treat an unconfirmed generation as confirmed:",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R034",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "A host that removes old generations MUST keep the active, the pending and the confirmed generation and MUST keep every failed record; it MAY remove the content of a failed generation.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R035",
+      "document": "HCS-0008",
+      "keyword": "MUST NOT",
+      "text": "When a host cannot complete a return to the confirmed generation because it cannot change which generation is active, or because there is none to return to, it MUST NOT start an engine run from the failed generation, MUST stop, and MUST report as R016 requires, until a new desired set or an operator action arrives.",
       "source": "spec/HCS-0008-host-adapter.md"
     }
   ]
