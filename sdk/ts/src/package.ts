@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { chmodSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, lstatSync, openSync, readSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { gzipSync, gunzipSync } from 'node:zlib';
+import { collectVerifiedBlob, isBlobDigest } from './blob.ts';
 import { HcsFailure, hcsError } from './errors.ts';
 import { checkDetailPrefix, DEFAULT_DETAIL_PREFIX } from './extensions.ts';
 import { readTar, writeTar, TarUnsafeNameError, type TarInput } from './tar.ts';
@@ -9,7 +10,6 @@ import { readTar, writeTar, TarUnsafeNameError, type TarInput } from './tar.ts';
 export interface PackageExpected { size: number; contentHash: string; contentId?: string }
 export interface PackageLimits { maxBytes?: number; maxMembers?: number }
 const mediaType = 'application/vnd.oci.image.layer.v1.tar+gzip';
-const hashPattern = /^(sha256:[a-f0-9]{64}|sha512:[a-f0-9]{128})$/;
 function failure(message: string, requirement = 'HCS-0001-R007'): never { throw new HcsFailure([hcsError('integrity_mismatch', message, { requirement })]); }
 function unsafe(prefix: string, name: string, reason: string): never {
   throw new HcsFailure([hcsError('integrity_mismatch', 'Unsafe archive member', { details: { [`${prefix}-archive`]: 'unsafe-member', [`${prefix}-member`]: name, [`${prefix}-reason`]: reason } })]);
@@ -31,7 +31,7 @@ export function buildPackage(dir: string) {
 }
 function verifyTransport(bytes: Uint8Array, expected: PackageExpected): void {
   if (bytes.length !== expected.size) failure('Package size does not match');
-  if (!hashPattern.test(expected.contentHash)) failure('Invalid package content hash');
+  if (!isBlobDigest(expected.contentHash)) failure('Invalid package content hash');
   const [algorithm, digest] = expected.contentHash.split(':');
   if (createHash(algorithm).update(bytes).digest('hex') !== digest) failure('Package digest does not match');
 }
@@ -42,7 +42,7 @@ export function verifiedPackageTar(bytes: Uint8Array, expected: PackageExpected,
   verifyTransport(bytes, expected);
   if (!Number.isSafeInteger(maxOutputLength) || maxOutputLength < 0) throw new RangeError('Invalid package decompression limit');
   const hasIdentity = expected.contentId !== undefined;
-  if (hasIdentity && (typeof expected.contentId !== 'string' || !hashPattern.test(expected.contentId) || expected.contentId.endsWith('\n'))) failure('Invalid package content identity', 'HCS-0001-R018');
+  if (hasIdentity && (typeof expected.contentId !== 'string' || !isBlobDigest(expected.contentId) || expected.contentId.endsWith('\n'))) failure('Invalid package content identity', 'HCS-0001-R018');
   let tar: Buffer;
   try {
     tar = gunzipSync(bytes, { maxOutputLength: Math.max(1, maxOutputLength) });
@@ -121,12 +121,19 @@ export function unpackPackage(bytes: Uint8Array, expected: PackageExpected, targ
     renameSync(partial, targetDir);
   } catch (error) { unsealTree(partial); rmSync(partial, { recursive: true, force: true }); throw error; }
 }
+// Bounded synchronous reads, like the readFileSync this replaces: no extra event-loop turns for a store hit.
+async function* readStoreFile(path: string): AsyncGenerator<Uint8Array, void, void> {
+  const fd = openSync(path, 'r'), buffer = Buffer.allocUnsafe(64 * 1024);
+  try { for (;;) { const n = readSync(fd, buffer, 0, buffer.length, null); if (n === 0) return; yield buffer.subarray(0, n); } } finally { closeSync(fd); }
+}
 // Package bytes come only from the content-addressed store or an `https:` location; any other
 // location (including `file:`) is refused like an unavailable one. Aborting `signal` aborts the download.
 export async function fetchPackageBytes(entry: PackageExpected & { locations?: string[] }, options: { storeDir: string; signal?: AbortSignal }): Promise<Buffer> {
-  if (!hashPattern.test(entry.contentHash)) throw new Error('Invalid package content hash');
+  if (!isBlobDigest(entry.contentHash)) throw new Error('Invalid package content hash');
   const [algorithm, digest] = entry.contentHash.split(':');
-  try { return readFileSync(join(options.storeDir, algorithm, digest)); } catch (error: any) { if (error.code !== 'ENOENT') throw error; }
+  const descriptor = { digest: entry.contentHash, size: entry.size };
+  // The store is content-addressed, but a corrupted or tampered file is not trusted: it fails integrity like a bad download.
+  try { return await collectVerifiedBlob(readStoreFile(join(options.storeDir, algorithm, digest)), descriptor, { signal: options.signal }); } catch (error: any) { if (error.code !== 'ENOENT') throw error; }
   let lastError: unknown = new Error('No package location available');
   for (const location of entry.locations ?? []) {
     try {
@@ -139,9 +146,7 @@ export async function fetchPackageBytes(entry: PackageExpected & { locations?: s
       try {
         const response = await fetch(url, { signal: controller.signal, redirect: 'error' });
         if (!response.ok || !response.body) throw new Error(`Package fetch failed: ${response.status}`);
-        const chunks: Buffer[] = []; let length = 0;
-        for await (const chunk of response.body) { length += chunk.length; if (length > entry.size) { controller.abort(); throw new Error('Package download exceeds expected size'); } chunks.push(Buffer.from(chunk)); }
-        return Buffer.concat(chunks, length);
+        return await collectVerifiedBlob(response.body, descriptor, { signal: controller.signal });
       } finally { options.signal?.removeEventListener('abort', abort); controller.abort(); }
     } catch (error) { if (options.signal?.aborted) throw error; lastError = error; }
   }

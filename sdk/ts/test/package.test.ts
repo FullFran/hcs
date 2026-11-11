@@ -105,10 +105,42 @@ test('fetch prefers the local content store, then tries https locations in order
   writeFileSync(join(local, entry.contentHash.slice(7)), 'stored'); assert.equal((await fetchPackageBytes(entry, { storeDir: store })).toString(), 'stored');
   const requested: string[] = [];
   await withFetch(async url => { requested.push(url); return url.endsWith('/missing') ? new Response('', { status: 404 }) : new Response(url.endsWith('/first') ? 'first' : 'second'); }, async () => {
-    const missing = { ...entry, contentHash: expected(Buffer.from('missing')).contentHash, locations: ['https://packages.invalid/missing', ...entry.locations] };
+    const missing = { ...expected(Buffer.from('first')), locations: ['https://packages.invalid/missing', ...entry.locations] };
     assert.equal((await fetchPackageBytes(missing, { storeDir: store })).toString(), 'first');
   });
   assert.deepEqual(requested, ['https://packages.invalid/missing', 'https://packages.invalid/first']);
+}));
+
+test('fetch verifies streamed bodies and falls through to the next location on an integrity failure', scratch(async dir => {
+  const good = Buffer.from('good bytes'), entry = { ...expected(good), locations: ['big', 'short', 'wrong', 'good'].map(n => `https://packages.invalid/${n}`) };
+  const bodies: Record<string, Buffer> = { big: Buffer.concat([good, Buffer.from('!')]), short: good.subarray(1), wrong: Buffer.from('bad  bytes'), good };
+  const requested: string[] = [];
+  await withFetch(async url => { requested.push(url); return new Response(new Uint8Array(bodies[url.split('/').pop()!])); }, async () => {
+    assert.deepEqual(await fetchPackageBytes(entry, { storeDir: join(dir, 'store') }), good);
+    assert.equal(requested.length, 4);
+    for (const bad of ['big', 'short', 'wrong']) {
+      await assert.rejects(fetchPackageBytes({ ...entry, locations: [`https://packages.invalid/${bad}`] }, { storeDir: join(dir, 'store') }), mismatch);
+    }
+  });
+}));
+
+test('fetch verifies content-addressed store hits', scratch(async dir => {
+  const store = join(dir, 'store'), local = join(store, 'sha256'); mkdirSync(local, { recursive: true });
+  const entry = { ...expected(Buffer.from('stored')), locations: ['https://packages.invalid/p'] };
+  writeFileSync(join(local, entry.contentHash.slice(7)), 'tampered');
+  await assert.rejects(fetchPackageBytes(entry, { storeDir: store }), mismatch);
+  writeFileSync(join(local, entry.contentHash.slice(7)), 'stored-and-longer');
+  await assert.rejects(fetchPackageBytes(entry, { storeDir: store }), mismatch);
+}));
+
+test('fetched bytes still unpack through the existing verification', scratch(async dir => {
+  const src = join(dir, 'src'); mkdirSync(src); writeFileSync(join(src, 'a'), 'a');
+  const built = buildPackage(src), entry = { size: built.size, contentHash: built.contentHash, contentId: built.contentId, locations: ['https://packages.invalid/p'] };
+  await withFetch(async () => new Response(new Uint8Array(built.bytes)), async () => {
+    const fetched = await fetchPackageBytes(entry, { storeDir: join(dir, 'store') });
+    unpackPackage(fetched, entry, join(dir, 'out'));
+    assert.equal(readFileSync(join(dir, 'out', 'a'), 'utf8'), 'a');
+  });
 }));
 
 test('fetch refuses file: locations like any other unsupported location', scratch(async dir => {
