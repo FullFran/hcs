@@ -27,6 +27,9 @@ commands:
                 --signer <keyid>=<private.pem> [--signer ...] --out <envelope.json> [--force]
   pack          <dir> --out <package.tar.gz> [--force]
 
+Input files for sign-keys and sign-catalog must write every number as a plain integer
+(no fraction, no exponent, no -0): 1.0 and 1e2 are refused (HCS-0007-R004).
+
 exit codes: 0 success, 1 operational error, 2 usage error
 `;
 
@@ -114,7 +117,10 @@ function writeOutput(io: CliIo, path: string, data: string | Uint8Array, force: 
 
 function parseJsonText(text: string, what: string): unknown {
   const parsed = parseStrictJson(text);
-  // Fixed text: parser messages can quote the input, and the input may be a misplaced private key.
+  // The parser's messages hold offsets and requirement ids only. Anything else stays fixed text:
+  // the input may be a misplaced private key.
+  if (!parsed.ok && parsed.errors[0]?.requirement === 'HCS-0007-R004')
+    throw new CliFailure(`${parsed.errors[0].code}: ${what} breaks HCS-0007-R004: ${parsed.errors[0].message.replace(/^document has no canonical form: /, '')}`);
   if (!parsed.ok) throw new CliFailure(`${parsed.errors[0]?.code ?? 'manifest_invalid'}: ${what} is not valid JSON`);
   return parsed.value;
 }

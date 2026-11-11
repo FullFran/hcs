@@ -164,6 +164,63 @@ def canonical(value):
     raise CanonicalError(f"unsupported value {type(value).__name__}")
 
 
+
+
+class StrictJsonError(ValueError):
+    """The received text has no canonical form. `requirement` names the rule; messages never quote the text."""
+
+    def __init__(self, message, requirement):
+        super().__init__(message)
+        self.requirement = requirement
+
+
+def parse_text(data):
+    """Parse the exact bytes of a received document in two stages (HCS-0007 section 5.2).
+
+    Returns (value, violation). Stage 1 raises StrictJsonError (R003) for what is not readable: invalid
+    UTF-8, a syntax error, a duplicated member name or an unpaired surrogate. Stage 3 is the number
+    rule: `violation` is the first StrictJsonError (R004) for a number token that is not
+    `-?(0|[1-9][0-9]*)` or lies outside the safe range, or None. It is returned, not raised, so that
+    the caller reads hcsVersion (stage 2) before it reports the number. Python's json module is the one
+    parser; its hooks see each member name and each number token as written.
+    """
+    first = []
+
+    def note(message):
+        if not first:
+            first.append(StrictJsonError(message, "HCS-0007-R004"))
+        return 0
+
+    def integer(token):
+        if token == "-0":
+            return note("number token is not spelled as a plain integer")
+        if len(token) > 20 or abs(int(token)) > SAFE_INT:  # a long token is out of range; never convert it
+            return note("integer outside the I-JSON safe range")
+        return int(token)
+
+    def duplicates(pairs):
+        out = {}
+        for key, value in pairs:
+            if key in out:
+                raise StrictJsonError("duplicated member name", "HCS-0007-R003")
+            out[key] = value
+        return out
+
+    def constant(name):
+        raise StrictJsonError("not a JSON number", "HCS-0007-R003")
+
+    try:
+        value = json.loads(data.decode("utf-8"), object_pairs_hook=duplicates, parse_int=integer,
+                           parse_float=lambda token: note("number token has a fraction or an exponent"),
+                           parse_constant=constant)
+        canonical(value)  # an unpaired surrogate; numbers noted above were replaced by 0
+    except StrictJsonError:
+        raise
+    except (UnicodeDecodeError, ValueError, RecursionError):  # includes json.JSONDecodeError and CanonicalError
+        raise StrictJsonError("document is not canonical JSON text", "HCS-0007-R003") from None
+    return value, (first[0] if first else None)
+
+
 def unsigned_bytes(doc):
     return canonical({k: v for k, v in doc.items() if k != "signatures"}).encode("utf-8")
 
@@ -250,10 +307,25 @@ def selftest():
     assert canonical({"\ue000": 1, "\U0001f600": 2, "a": [True, None, "\u000f"]}) == \
         '{"a":[true,null,"\\u000f"],"\U0001f600":2,"\ue000":1}'
     assert pae("t", b"ab") == b"DSSEv1 1 t 2 ab"
+    for text, requirement in ((b'{"a":1,"a":2}', "HCS-0007-R003"), (b'{"a":"\\ud800"}', "HCS-0007-R003"),
+                              (b'{"a":\xff}', "HCS-0007-R003"), (b'{"a":NaN}', "HCS-0007-R003"),
+                              (b'{"a":01}', "HCS-0007-R003"), (b'{"a":-01}', "HCS-0007-R003"), (b'{"a":+1}', "HCS-0007-R003"),
+                              (b'{"a":.5}', "HCS-0007-R003"), (b'{"a":1,"a":1.5}', "HCS-0007-R003")):
+        try:
+            parse_text(text)
+            raise AssertionError("accepted " + repr(text))
+        except StrictJsonError as e:
+            assert e.requirement == requirement, (text, e.requirement)
+    big = b"1" + b"0" * 399
+    for token in (b"1.0", b"1e2", b"100e-2", b"-0", b"9007199254740992", b"-9007199254740992", big, b"-" + big):
+        value, violation = parse_text(b'{"hcsVersion":"0.2","a":' + token + b"}")  # readable: the version stays available
+        assert value["hcsVersion"] == "0.2" and violation.requirement == "HCS-0007-R004", token
+    assert parse_text(b'{"a":[0,-12,9007199254740991],"b":{"a":"\\ud83d\\ude00"}}') == (
+        {"a": [0, -12, 9007199254740991], "b": {"a": "\U0001f600"}}, None)
     for bad in (1.5, 2 ** 53):
         try:
             canonical(bad)
             raise AssertionError("accepted " + json.dumps(bad))
         except CanonicalError:
             pass
-    print("selftest: Ed25519 (RFC 8032 test 1), RFC 8785 ordering and DSSE PAE pass")
+    print("selftest: Ed25519 (RFC 8032 test 1), RFC 8785 ordering, DSSE PAE and strict text parsing pass")

@@ -145,6 +145,20 @@ test('sign-keys reports a malformed key set as manifest_invalid', async () => {
   assert.equal(existsSync(p('out.json')), false);
 });
 
+test('sign-keys refuses a number spelled 1.0 (HCS-0007-R004) without echoing the file', async () => {
+  await publishKeys();
+  write('spelled.json', '{"hcsVersion":"0.1","version":1.0,"keys":[],"x-secret-note":1}');
+  const r = await run('sign-keys', '--in', 'spelled.json', '--signer', 'root-1=root.pem', '--out', 'out.json');
+  assert.equal(r.code, 1);
+  assert.match(r.err, /^manifest_invalid: key set breaks HCS-0007-R004: number token at offset 30 is not spelled as a plain integer/);
+  assert.equal((r.out + r.err).includes('secret'), false);
+  write('catalog-spelled.json', '{"hcsVersion":"0.1","id":"dev.example.c","version":"1","entries":[],"x-n":1e2}');
+  const c = await run('sign-catalog', '--catalog', 'catalog-spelled.json', '--sequence', '1', '--expires', '2026-11-13T00:00:00Z', '--binding', 'tenant=t',
+    '--signer', 'online-1=online.pem', '--out', 'signed.json');
+  assert.equal(c.code, 1); assert.match(c.err, /^manifest_invalid: catalog breaks HCS-0007-R004: number token at offset \d+ /);
+  assert.equal(existsSync(p('out.json')), false);
+});
+
 test('a file that is not JSON is reported without echoing its contents', async () => {
   await publishKeys();
   write('seed.txt', 'SECRETSEEDabcdefghijklmnop');

@@ -6,13 +6,13 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkEnvelopeShape, checkKeySetShape, signingInput, CanonicalError, verifyKeySet, verifySignedCatalog } from '../../src/signing/index.ts';
+import { checkEnvelopeShape, checkKeySetShape, readEnvelope, readKeySet, signingInput, CanonicalError, verifyKeySet, verifySignedCatalog } from '../../src/signing/index.ts';
 import { readCatalog } from '../../src/catalog.ts';
 
 const CASES = fileURLToPath(new URL('../../../../conformance/cases/', import.meta.url));
 const SIGNED = 'urn:hcs:schema:hcs-0007:signed-catalog:0.1';
 type Err = { code: string; entry?: string; capability?: string };
-type Case = { description: string; level: string; target?: string; input: any; expect: any };
+type Case = { description: string; level: string; target?: string; input?: any; documentBase64?: string; expect: any };
 
 const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true })
   .flatMap(d => d.isDirectory() ? walk(join(dir, d.name)) : d.name.endsWith('.json') ? [join(dir, d.name)] : []);
@@ -20,19 +20,29 @@ const norm = (errors: Err[]) => errors.map(e => JSON.stringify({ code: e.code, .
 const validateCatalog = (c: unknown) => { const r = readCatalog(JSON.stringify(c)); return r.ok ? [] : r.errors; };
 
 function run(c: Case): { errors: Err[]; signing?: string } {
-  const inp = c.input;
+  let inp = c.input;
+  if (c.documentBase64 !== undefined) {
+    // The case carries the exact text of the document: read it as a host reads the received bytes
+    // (readable, then hcsVersion, then R004 and shape), before any verification.
+    const bytes = new Uint8Array(Buffer.from(c.documentBase64, 'base64'));
+    const keySetText = c.level === 'document' ? c.target === `${SIGNED}#/$defs/keySet` : inp.check === 'key-set';
+    const parsed = (keySetText ? readKeySet : readEnvelope)(bytes, inp?.limits);
+    if (!parsed.ok) return { errors: parsed.errors };
+    if (c.level === 'document') inp = parsed.value;
+    else inp = { ...inp, [inp.check === 'key-set' ? 'keySet' : 'envelope']: parsed.value };
+  }
   if (c.level === 'document') return { errors: (c.target === `${SIGNED}#/$defs/envelope` ? checkEnvelopeShape : checkKeySetShape)(inp) };
   if (inp.check === 'signing-input') {
     try { return { errors: [], signing: new TextDecoder().decode(signingInput(inp.payloadType, inp.document)) }; }
     catch (e) { if (e instanceof CanonicalError) return { errors: [{ code: 'manifest_invalid' }] }; throw e; }
   }
   if (inp.check === 'key-set') {
-    const r = verifyKeySet(inp.keySet, { trustAnchor: inp.trustAnchor, lastAccepted: inp.lastKeySet, now: inp.now });
+    const r = verifyKeySet(inp.keySet, { trustAnchor: inp.trustAnchor, lastAccepted: inp.lastKeySet, now: inp.now, limits: inp.limits });
     return { errors: r.ok ? [] : r.errors };
   }
   if (inp.check === 'envelope') {
     const r = verifySignedCatalog({ trustAnchor: inp.trustAnchor, keySet: inp.keySet, lastKeySet: inp.lastKeySet, envelope: inp.envelope,
-      assignment: inp.assignment, lastAccepted: inp.lastAccepted, now: inp.now, validateCatalog });
+      assignment: inp.assignment, lastAccepted: inp.lastAccepted, now: inp.now, validateCatalog, limits: inp.limits });
     return { errors: r.ok ? [] : r.errors };
   }
   throw new Error(`unknown check ${inp.check}`);
@@ -57,5 +67,5 @@ test('HCS-0007 conformance cases', t => {
   t.diagnostic(summary);
   console.log(summary);
   assert.deepEqual(failures, []);
-  assert.ok(counts.pass >= 37 + 13, 'every distribution case and every HCS-0007 shape case ran');
+  assert.ok(counts.pass >= 37 + 13 + 34, 'every distribution case and every HCS-0007 shape case ran');
 });

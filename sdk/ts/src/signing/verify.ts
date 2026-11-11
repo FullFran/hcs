@@ -3,7 +3,7 @@
 import { ed25519Verify } from './ed25519.ts';
 import { contentDigest, ENVELOPE_PAYLOAD_TYPE, KEY_SET_PAYLOAD_TYPE, signingInput } from './pae.ts';
 import { assertAssignment, assertTrustAnchor, checkEnvelopeShape, checkKeySetShape, parseInstant } from './shape.ts';
-import { fail, type AcceptedEnvelope, type AcceptedKeySet, type Clock, type Envelope, type KeySet, type SigningError, type TrustAnchor } from './types.ts';
+import { fail, type AcceptedEnvelope, type AcceptedKeySet, type Clock, type Envelope, type KeySet, type Limits, type SigningError, type TrustAnchor } from './types.ts';
 
 declare const verified: unique symbol;
 /** A key set that passed `verifyKeySet`; only such a key set can verify envelopes. */
@@ -53,10 +53,10 @@ function countSigners(doc: { signatures?: { keyid: string; sig: string }[] }, pa
  * Verifies a key set against the trust anchor (R002, R011, R012, R013), in that order.
  * `lastAccepted` is the host's accepted state for key sets, when it has one.
  */
-export function verifyKeySet(keySet: unknown, opts: { trustAnchor: TrustAnchor; lastAccepted?: AcceptedKeySet; now: Clock }): KeySetVerification {
+export function verifyKeySet(keySet: unknown, opts: { trustAnchor: TrustAnchor; lastAccepted?: AcceptedKeySet; now: Clock; limits?: Limits }): KeySetVerification {
   assertTrustAnchor(opts.trustAnchor);
   const now = clock(opts.now);
-  const errors = checkKeySetShape(keySet);
+  const errors = checkKeySetShape(keySet, opts.limits);
   if (errors.length) return { ok: false, errors };
   const ks = keySet as KeySet;
   const roots = new Map(opts.trustAnchor.keys.map(k => [k.keyid, k.public]));
@@ -84,14 +84,14 @@ function sameBinding(a: Record<string, string>, b: Record<string, string>): bool
  * (3) binding, (4) expiry, (5) sequence, (6) the catalog via `validateCatalog` (HCS-0001).
  */
 export function verifyEnvelope(envelope: unknown, opts: {
-  keySet: VerifiedKeySet; assignment: Record<string, string>; lastAccepted?: AcceptedEnvelope; now: Clock; validateCatalog: CatalogValidator;
+  keySet: VerifiedKeySet; assignment: Record<string, string>; lastAccepted?: AcceptedEnvelope; now: Clock; validateCatalog: CatalogValidator; limits?: Limits;
 }): EnvelopeVerification {
   if (!VERIFIED.has(opts.keySet)) throw new TypeError('keySet must be the result of verifyKeySet');
   assertAssignment(opts.assignment);
   if (typeof opts.validateCatalog !== 'function') throw new TypeError('validateCatalog is required (HCS-0007-R010)');
   const now = clock(opts.now);
 
-  const shape = checkEnvelopeShape(envelope);
+  const shape = checkEnvelopeShape(envelope, opts.limits);
   if (shape.length) return { ok: false, errors: shape, step: 1 };
   const env = envelope as Envelope;
 
@@ -133,11 +133,11 @@ export type SignedCatalogVerification =
 export function verifySignedCatalog(input: {
   trustAnchor: TrustAnchor; keySet: unknown; lastKeySet?: AcceptedKeySet;
   envelope: unknown; assignment: Record<string, string>; lastAccepted?: AcceptedEnvelope;
-  now: Clock; validateCatalog: CatalogValidator;
+  now: Clock; validateCatalog: CatalogValidator; limits?: Limits;
 }): SignedCatalogVerification {
-  const ks = verifyKeySet(input.keySet, { trustAnchor: input.trustAnchor, lastAccepted: input.lastKeySet, now: input.now });
+  const ks = verifyKeySet(input.keySet, { trustAnchor: input.trustAnchor, lastAccepted: input.lastKeySet, now: input.now, limits: input.limits });
   if (!ks.ok) return { ok: false, stage: 'key-set', errors: ks.errors };
-  const env = verifyEnvelope(input.envelope, { keySet: ks.keySet, assignment: input.assignment, lastAccepted: input.lastAccepted, now: input.now, validateCatalog: input.validateCatalog });
+  const env = verifyEnvelope(input.envelope, { keySet: ks.keySet, assignment: input.assignment, lastAccepted: input.lastAccepted, now: input.now, validateCatalog: input.validateCatalog, limits: input.limits });
   if (!env.ok) return { ok: false, stage: 'envelope', errors: env.errors };
   return { ok: true, catalog: env.catalog, keySet: { verified: ks.keySet, accepted: ks.accepted }, envelope: { accepted: env.accepted } };
 }

@@ -90,25 +90,33 @@ PAE(payloadType, JCS(document without its "signatures" member))
 
 where PAE is the DSSE v1 pre-authentication encoding (`"DSSEv1" SP LEN(type) SP type SP LEN(body) SP body`, lengths in ASCII decimal bytes), JCS is RFC 8785, and `payloadType` is `application/vnd.hcs.catalog-envelope+json` for envelopes and `application/vnd.hcs.key-set+json` for key sets. The two payload types keep a key-set signature from being accepted as an envelope signature, and the reverse.
 
-JCS sorts object members by their UTF-16 code units, writes no whitespace, and escapes only `"`, `\` and control characters. Because every number in the canonical domain is an integer (R004), a number serialises as its decimal digits and no implementation needs the ECMAScript floating-point algorithm of RFC 8785 section 3.2.2.3. A document with an unpaired surrogate or a duplicated member name has no canonical form; a host rejects it as `manifest_invalid`.
+JCS sorts object members by their UTF-16 code units, writes no whitespace, and escapes only `"`, `\` and control characters. Because every number in the canonical domain is an integer (R004), a number serialises as its decimal digits and no implementation needs the ECMAScript floating-point algorithm of RFC 8785 section 3.2.2.3. A document with an unpaired surrogate or a duplicated member name has no canonical form; a host rejects it as `manifest_invalid` (R003). A number whose spelling is not the one R004 allows is `manifest_invalid` as well, once the host has read `hcsVersion` (section 5.2).
 
 ## 5. Requirements
 
 ### 5.1 Documents
 
-**[HCS-0007-R001]** A host MUST check an envelope's `hcsVersion` and then its shape against the HCS-0007 envelope schema before verifying any signature, reporting `unsupported_hcs_version` or `manifest_invalid` as HCS-0001-R002 and HCS-0001-R001 do for catalogs.
+**[HCS-0007-R001]** A host MUST check an envelope's `hcsVersion` once the document is readable, and then its number spelling (R004) and its shape against the HCS-0007 envelope schema, all before verifying any signature, reporting `unsupported_hcs_version` or `manifest_invalid` as HCS-0001-R002 and HCS-0001-R001 do for catalogs.
 
-**[HCS-0007-R002]** A key set MUST validate against the HCS-0007 key set schema and MUST NOT list two keys with the same `keyid`; a host MUST report `manifest_invalid` otherwise.
+**[HCS-0007-R002]** A host MUST check a key set's `hcsVersion` once the document is readable, before its number spelling and its shape, and report `unsupported_hcs_version` when it is not supported, as R001 requires for envelopes; a key set MUST then validate against the HCS-0007 key set schema and MUST NOT list two keys with the same `keyid`, and a host MUST report `manifest_invalid` otherwise.
 
 **[HCS-0007-R003]** The signature input of an envelope or key set MUST be the DSSE v1 pre-authentication encoding of its payload type and of the RFC 8785 serialization of the document without its `signatures` member, as defined in section 4.
 
-**[HCS-0007-R004]** An envelope or key set MUST NOT contain a number that is not an integer between -(2^53-1) and 2^53-1.
+**[HCS-0007-R004]** An envelope or key set MUST NOT contain a number whose token in the received text is not spelled `-?(0|[1-9][0-9]*)` with a value between -(2^53-1) and 2^53-1, and `-0` is not allowed; a host MUST report `manifest_invalid` citing this requirement otherwise.
+
+R004 judges the spelling of the token, not its value. A fraction or an exponent is refused even when the value is integral: `1.0`, `1e2`, `100e-2` and `-0` are all refused, and so is `1.0000000000000000001`. A signer that follows section 4 never writes those spellings, and a token rule needs no arithmetic, so two hosts cannot disagree about a value that one of them rounds. A host applies the rule to the text it received, not to a parsed value that has lost the spelling, and only after it has read `hcsVersion` (section 5.2).
 
 R004 applies to every number in the document, at any depth, including numbers inside extension members and inside the embedded catalog. The signature covers the whole document except `signatures` (section 4), so a number outside the domain anywhere leaves the document without one canonical form that every implementation computes alike. Rejecting it does not conflict with HCS-0000-R003: the host rejects the document because it has no canonical form, not because it does not understand the extension member. The same holds for an unpaired surrogate or a duplicated member name inside an extension member.
 
 ### 5.2 Envelope verification
 
-A host verifies an envelope in this order and stops at the first failure: (1) version and shape, R001; (2) signatures, R005; (3) binding, R006; (4) expiry, R007; (5) sequence, R008; (6) the catalog, R010. The current time is the host's clock; conformance cases state it explicitly.
+A host reads an envelope or a key set in this order and stops at the first failure.
+
+1. The document is readable: valid UTF-8, valid JSON, no duplicated member name and no unpaired surrogate. Otherwise the host reports `manifest_invalid` (R003). A document that fails this has no readable `hcsVersion`.
+2. `hcsVersion`. Another version is `unsupported_hcs_version` (R001, R002), even when the document also holds a number that breaks R004, has a wrong shape, repeats a `keyid` or exceeds a bound. A later contract may change those rules, so a host does not judge them for a version it does not implement.
+3. The number rule R004, then the shape, then (for a key set) the unique key `keyid` of R002, then R022, then R023.
+
+A host verifies an envelope in this order and stops at the first failure: (1) reading, version, number spelling and shape, R001, with the checks of R004, R022 and R023 in the order above; (2) signatures, R005; (3) binding, R006; (4) expiry, R007; (5) sequence, R008; (6) the catalog, R010. The current time is the host's clock; conformance cases state it explicitly.
 
 **[HCS-0007-R005]** A host MUST NOT accept an envelope unless valid signatures from at least `threshold` distinct public keys of its accepted key set, each within its validity window, cover the signature input, and MUST report `signature_invalid` otherwise.
 
@@ -123,6 +131,16 @@ A host verifies an envelope in this order and stops at the first failure: (1) ve
 **[HCS-0007-R010]** A host MUST validate the enclosed catalog as HCS-0001 requires, after every envelope check has passed, and MUST NOT accept an envelope whose catalog fails that validation.
 
 An envelope equal in content to the last accepted one is accepted again; fetching the same envelope twice is not a rollback.
+
+### 5.2.1 Signature lists and bounds
+
+**[HCS-0007-R022]** An envelope or key set MUST NOT list two items of `signatures` with the same `keyid`; a host MUST report `manifest_invalid` and MUST do so before verifying any signature.
+
+Validity does not depend on the order of the signatures: a list with an invalid and a valid signature for one `keyid` is refused in either order. TUF requires the `keyid` to be unique within `signatures` ([tuf.md](../docs/standards/tuf.md), TUF 1.0.37, Document formats, Object format); HCS refuses the document instead of choosing which of the items to ignore.
+
+**[HCS-0007-R023]** A host that limits the number of keys in a key set or of items in `signatures` MUST report `manifest_invalid` for a document that exceeds a limit and MUST do so before verifying any signature; HCS states no number, and a host MAY set such limits.
+
+For an envelope the order of step (1) is: readable (R003), `hcsVersion`, R004, shape, R022, R023. A key set is checked in the same order, with R002 in place of R001, and its unique key `keyid` (R002) is judged with the shape, before R022 and R023. A document at a limit is within it.
 
 ### 5.3 Key set verification
 
@@ -166,3 +184,4 @@ Section 5.5 cannot be checked by a conformance case; it describes how a distribu
 - OQ-0007-4: whether hosts verify R020 provenance before activation, and which builder identities they trust.
 - OQ-0007-5: key types besides Ed25519, and post-quantum signatures.
 - OQ-0007-6: how a host recovers when every online key has expired and no newer key set is reachable (TUF fast-forward recovery has no equivalent here yet).
+- OQ-0007-7: whether a host must refuse an Ed25519 public key of small order (a key whose multiples by the cofactor are the identity). With such a key, a signature can verify for more than one message, so the signature need not bind the document to a key holder; whether that matters depends on how a deployment issues keys. HCS-0007 does not say, and the reference implementation does not refuse them; no requirement is written until a second implementation or a deployment shows which behavior hosts need.

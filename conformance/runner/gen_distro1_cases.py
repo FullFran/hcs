@@ -105,11 +105,15 @@ def bad(code):
 def cases():
     out = []
 
-    def add(req, pol, name, description, level, inp, expect, target=None):
+    def add(req, pol, name, description, level, inp, expect, target=None, text=None):
         case = {"description": description, "requirements": [req], "level": level}
         if target:
             case["target"] = target
-        case.update({"input": inp, "expect": expect})
+        if text is not None:
+            case["documentBase64"] = b64(text)
+        if inp is not None:
+            case["input"] = inp
+        case["expect"] = expect
         out.append((req, pol, name, case))
 
     env = envelope()
@@ -258,7 +262,135 @@ def cases():
     early = key_set([online("online-1"), online("online-2", nb="2026-12-01T00:00:00Z")])
     add("HCS-0007-R014", "invalid", "not-yet-valid", "A key that becomes valid next month does not sign today.", "distribution",
         verify_input(envelope(signers=("online-2",)), early), bad("signature_invalid"))
+    textual_cases(add)
+    signature_list_cases(add)
     return out
+
+
+def compact(doc):
+    return json.dumps(doc, separators=(",", ":"), ensure_ascii=True)
+
+
+def respell(doc, old, new):
+    """Compact text of a signed document with one token respelled; the signature stays that of the plain document."""
+    text = compact(doc)
+    assert text.count(old) == 1, old
+    return text.replace(old, new).encode()
+
+
+def textual_envelope_input(check_input=None):
+    inp = verify_input(None) if check_input is None else check_input
+    del inp["envelope"]
+    return inp
+
+
+def textual_cases(add):
+    """Cases whose document is carried as exact text (documentBase64): spelling, duplicate names, surrogates, versions."""
+    def base(n=1, **more):
+        return envelope(**{"x-example-n": n, "x-example-m": -12, "x-example-s": "a"}, **more)
+
+    def ks_input(_unused, **kw):
+        inp = key_set_input(None, **kw)
+        del inp["keySet"]
+        return inp
+
+    plain = base()
+    add("HCS-0007-R004", "valid", "text-plain-integers", "Plain integers in the received text, one negative: the signature verifies.", "distribution",
+        textual_envelope_input(), ok(), text=compact(plain).encode())
+    for name, value, spelling, why in (
+            ("text-fraction-zero", 1, "1.0", "1.0 has an integral value but a fraction in its spelling."),
+            ("text-exponent", 100, "1e2", "1e2 has an integral value but an exponent in its spelling."),
+            ("text-exponent-negative", 1, "100e-2", "100e-2 has an integral value but an exponent in its spelling."),
+            ("text-negative-zero", 0, "-0", "-0 is refused even though 0 is allowed.")):
+        doc = base(value)
+        add("HCS-0007-R004", "invalid", name, why + " The signature covers the plain integer, so only the spelling is wrong.", "distribution",
+            textual_envelope_input(), bad("manifest_invalid"), text=respell(doc, f'"x-example-n":{value},', f'"x-example-n":{spelling},'))
+    ks = key_set()
+    add("HCS-0007-R004", "valid", "text-key-set-plain-integer", "A key set with plain integers in its text.", "distribution",
+        ks_input(None), ok(), text=compact(ks).encode())
+    add("HCS-0007-R004", "invalid", "text-key-set-fraction-zero", "version 3.0 in a key set: the same rule as for an envelope.", "distribution",
+        ks_input(None), bad("manifest_invalid"), text=respell(ks, '"version":3,', '"version":3.0,'))
+    add("HCS-0007-R004", "invalid", "text-document-level-exponent", "The spelling rule at document level: 1e2 for sequence.", "document", None,
+        bad("manifest_invalid"), ENV_T, text=respell(envelope(sequence=100), '"sequence":100,', '"sequence":1e2,'))
+
+    add("HCS-0007-R003", "valid", "text-no-duplicate-names", "The same member name in two different objects is not a duplicate.", "distribution",
+        textual_envelope_input(), ok(), text=compact(base(binding=dict(ASSIGNMENT))).encode())
+    add("HCS-0007-R003", "invalid", "text-duplicate-member-name", "A member name written twice in one object has no canonical form, whatever the signature says.", "distribution",
+        textual_envelope_input(), bad("manifest_invalid"), text=respell(plain, '"x-example-n":1,', '"x-example-n":1,"x-example-n":1,'))
+    add("HCS-0007-R003", "invalid", "text-duplicate-name-in-catalog", "A duplicated member name inside the embedded catalog.", "distribution",
+        textual_envelope_input(), bad("manifest_invalid"), text=respell(plain, '"hcsVersion":"0.1","id"', '"hcsVersion":"0.1","hcsVersion":"0.1","id"'))
+    add("HCS-0007-R003", "invalid", "text-unpaired-surrogate", "A string with the escape \\ud800 alone has no UTF-8 form, so no canonical form.", "distribution",
+        textual_envelope_input(), bad("manifest_invalid"), text=respell(plain, '"x-example-s":"a"', '"x-example-s":"\\ud800"'))
+    add("HCS-0007-R003", "valid", "text-surrogate-pair", "A surrogate pair escape is one character and has a canonical form.", "distribution",
+        textual_envelope_input(), {"outcome": "invalid", "errors": [{"code": "signature_invalid"}]},
+        text=respell(plain, '"x-example-s":"a"', '"x-example-s":"\\ud83d\\ude00"'))
+
+    add("HCS-0007-R002", "invalid", "text-key-set-other-hcs-version", "A key set with hcsVersion 0.2 is unsupported_hcs_version, as an envelope is.", "distribution",
+        ks_input(None), bad("unsupported_hcs_version"), text=respell(ks, '"hcsVersion":"0.1"', '"hcsVersion":"0.2"'))
+    shapeless = {k: v for k, v in ks.items() if k != "keys"}
+    add("HCS-0007-R002", "invalid", "text-key-set-version-before-shape", "hcsVersion 0.2 and no keys: the version is read before the shape.", "distribution",
+        ks_input(None), bad("unsupported_hcs_version"), text=respell(shapeless, '"hcsVersion":"0.1"', '"hcsVersion":"0.2"'))
+    # Reading order (section 5.2): readable, then hcsVersion, then R004, shape, R022, R023.
+    v2 = ('"hcsVersion":"0.1","sequence"', '"hcsVersion":"0.2","sequence"')
+    e_v2 = respell(plain, *v2)
+    add("HCS-0007-R001", "invalid", "text-other-version-with-fraction", "hcsVersion 0.2 and a fraction: the version is read first, so unsupported_hcs_version, not manifest_invalid.", "distribution",
+        textual_envelope_input(), bad("unsupported_hcs_version"), text=e_v2.replace(b'"x-example-n":1,', b'"x-example-n":1.5,'))
+    add("HCS-0007-R001", "invalid", "text-other-version-with-repeated-keyid", "hcsVersion 0.2 and a repeated signature keyid: unsupported_hcs_version.", "distribution",
+        textual_envelope_input(), bad("unsupported_hcs_version"),
+        text=compact(dict(json.loads(e_v2), signatures=plain["signatures"] * 2)).encode())
+    add("HCS-0007-R003", "invalid", "text-other-version-with-duplicate-name", "hcsVersion 0.2 and a duplicated member name: the document is not readable, so manifest_invalid.", "distribution",
+        textual_envelope_input(), bad("manifest_invalid"), text=e_v2.replace(b'"x-example-n":1,', b'"x-example-n":1,"x-example-n":1,'))
+    add("HCS-0007-R004", "invalid", "text-fraction", "hcsVersion 0.1 and 1.5: manifest_invalid for the number.", "distribution",
+        textual_envelope_input(), bad("manifest_invalid"), text=respell(plain, '"x-example-n":1,', '"x-example-n":1.5,'))
+    add("HCS-0007-R004", "invalid", "text-beyond-safe-range", "The plain integer 9007199254740992 is outside the range: R004, as for a spelling.", "distribution",
+        textual_envelope_input(), bad("manifest_invalid"), text=respell(plain, '"x-example-n":1,', '"x-example-n":9007199254740992,'))
+    ks_v2 = respell(ks, '"hcsVersion":"0.1"', '"hcsVersion":"0.2"')
+    add("HCS-0007-R002", "invalid", "text-key-set-other-version-with-fraction", "A key set with hcsVersion 0.2 and version 3.5: unsupported_hcs_version.", "distribution",
+        ks_input(None), bad("unsupported_hcs_version"), text=ks_v2.replace(b'"version":3,', b'"version":3.5,'))
+    add("HCS-0007-R003", "invalid", "text-key-set-other-version-with-duplicate-name", "A key set with hcsVersion 0.2 and a duplicated member name: manifest_invalid.", "distribution",
+        ks_input(None), bad("manifest_invalid"), text=ks_v2.replace(b'"version":3,', b'"version":3,"version":3,'))
+    add("HCS-0007-R004", "invalid", "text-key-set-fraction", "A key set with hcsVersion 0.1 and version 3.5: manifest_invalid for the number.", "distribution",
+        ks_input(None), bad("manifest_invalid"), text=respell(ks, '"version":3,', '"version":3.5,'))
+
+    add("HCS-0007-R002", "invalid", "text-key-set-no-keys-same-version", "No keys with the supported version stays manifest_invalid.", "distribution",
+        ks_input(None), bad("manifest_invalid"), text=compact(shapeless).encode())
+
+
+def signature_list_cases(add):
+    """R022 (one item per keyid in signatures) and R023 (limits), as parsed objects: the order of the list is the point."""
+    env = envelope()
+    good = env["signatures"][0]
+    msg = distro1.signing_input(distro1.ENVELOPE_PAYLOAD_TYPE, {k: v for k, v in env.items() if k != "signatures"})
+    wrong = {"keyid": "online-1", "sig": b64(distro1.sign(seed("online-2"), msg))}
+    unsigned = {k: v for k, v in env.items() if k != "signatures"}
+    add("HCS-0007-R022", "valid", "distinct-keyids", "Two signatures with different keyids.", "distribution",
+        verify_input(envelope(signers=("online-1", "online-2")), key_set([online("online-1"), online("online-2")], threshold=2)), ok())
+    add("HCS-0007-R022", "invalid", "invalid-signature-first", "keyid online-1 twice, the invalid signature first: manifest_invalid, not signature_invalid.", "distribution",
+        verify_input(dict(unsigned, signatures=[wrong, good])), bad("manifest_invalid"))
+    add("HCS-0007-R022", "invalid", "valid-signature-first", "keyid online-1 twice, the valid signature first: the document is refused all the same.", "distribution",
+        verify_input(dict(unsigned, signatures=[good, wrong])), bad("manifest_invalid"))
+    add("HCS-0007-R022", "invalid", "same-signature-twice", "The identical signature listed twice.", "distribution",
+        verify_input(dict(unsigned, signatures=[good, good])), bad("manifest_invalid"))
+    ks = key_set()
+    root_good = ks["signatures"][0]
+    root_wrong = {"keyid": "root-1", "sig": b64(distro1.sign(seed("online-1"), distro1.signing_input(
+        distro1.KEY_SET_PAYLOAD_TYPE, {k: v for k, v in ks.items() if k != "signatures"})))}
+    ks_unsigned = {k: v for k, v in ks.items() if k != "signatures"}
+    add("HCS-0007-R022", "invalid", "key-set-valid-signature-first", "A key set with root-1 twice, the valid signature first.", "distribution",
+        key_set_input(dict(ks_unsigned, signatures=[root_good, root_wrong])), bad("manifest_invalid"))
+    add("HCS-0007-R022", "invalid", "key-set-invalid-signature-first", "A key set with root-1 twice, the invalid signature first.", "distribution",
+        key_set_input(dict(ks_unsigned, signatures=[root_wrong, root_good])), bad("manifest_invalid"))
+
+    two = key_set([online("online-1"), online("online-2")], threshold=2)
+    both = envelope(signers=("online-1", "online-2"))
+    add("HCS-0007-R023", "valid", "signatures-at-limit", "Two signatures with a host limit of two.", "distribution",
+        dict(verify_input(both, two), limits={"maxSignatures": 2}), ok())
+    add("HCS-0007-R023", "invalid", "signatures-over-limit", "Two valid signatures meet the threshold, but the host limit is one: manifest_invalid before any verification.", "distribution",
+        dict(verify_input(both, two), limits={"maxSignatures": 1}), bad("manifest_invalid"))
+    add("HCS-0007-R023", "valid", "keys-at-limit", "Two keys with a host limit of two.", "distribution",
+        dict(key_set_input(two), limits={"maxKeys": 2}), ok())
+    add("HCS-0007-R023", "invalid", "keys-over-limit", "Two keys with a host limit of one.", "distribution",
+        dict(key_set_input(two), limits={"maxKeys": 1}), bad("manifest_invalid"))
 
 
 def render(case):
