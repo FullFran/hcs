@@ -11,9 +11,14 @@ export interface PackageExpected { size: number; contentHash: string; contentId?
 export interface PackageLimits { maxBytes?: number; maxMembers?: number }
 const mediaType = 'application/vnd.oci.image.layer.v1.tar+gzip';
 function failure(message: string, requirement = 'HCS-0001-R007'): never { throw new HcsFailure([hcsError('integrity_mismatch', message, { requirement })]); }
-function unsafe(prefix: string, name: string, reason: string): never {
-  throw new HcsFailure([hcsError('integrity_mismatch', 'Unsafe archive member', { details: { [`${prefix}-archive`]: 'unsafe-member', [`${prefix}-member`]: name, [`${prefix}-reason`]: reason } })]);
+// A verified package that is not safe or not unpackable (HCS-0001-R019 to R023). `archive` is `unsafe-member`,
+// `malformed` or `limit`; `member` is the path and is omitted when no member is at fault. Member content is never echoed.
+function invalid(prefix: string, requirement: string, archive: string, reason: string, member?: string): never {
+  const details: Record<string, unknown> = { [`${prefix}-archive`]: archive, [`${prefix}-reason`]: reason };
+  if (member !== undefined) details[`${prefix}-member`] = member;
+  throw new HcsFailure([hcsError('package_invalid', archive === 'unsafe-member' ? 'Unsafe archive member' : archive === 'limit' ? 'Package exceeds the host unpack limits' : 'Package archive is not a well-formed tar', { requirement, details })]);
 }
+function unsafe(prefix: string, requirement: string, name: string, reason: string): never { return invalid(prefix, requirement, 'unsafe-member', reason, name); }
 export function buildPackage(dir: string) {
   const members: TarInput[] = [];
   function walk(path: string, prefix: string) {
@@ -79,34 +84,49 @@ function unsealTree(dir: string): void {
   chmodSync(dir, 0o700);
   for (const entry of readdirSync(dir, { withFileTypes: true })) if (entry.isDirectory()) unsealTree(join(dir, entry.name));
 }
-// `detailPrefix` names the extension members of an unsafe-member error (`<prefix>-archive`, `-member`, `-reason`).
-export function unpackPackage(bytes: Uint8Array, expected: PackageExpected, targetDir: string, limits: PackageLimits = {}, detailPrefix = DEFAULT_DETAIL_PREFIX): void {
+// Reads the members of a verified package archive. Anything that is not a transport or contentId failure
+// (those stay `integrity_mismatch`, R007 and R018) becomes `package_invalid` (R019 to R023): a tar that cannot
+// be parsed, a decompression over the limit, a member over the limits or a member HCS-0001 forbids.
+export function readPackageMembers(bytes: Uint8Array, expected: PackageExpected, limits: PackageLimits = {}, detailPrefix = DEFAULT_DETAIL_PREFIX): ReturnType<typeof readTar> {
   const prefix = checkDetailPrefix(detailPrefix);
-  verifyTransport(bytes, expected);
   const maxBytes = limits.maxBytes ?? 256 * 1024 * 1024, maxMembers = limits.maxMembers ?? 10000;
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 0 || !Number.isSafeInteger(maxMembers) || maxMembers < 0) throw new RangeError('Invalid package limits');
-  if (taken(targetDir)) throw new Error('Package target already exists');
   // Allow each member a header and up to one padding block, plus the terminator.
   const cap = Math.min(maxBytes + maxMembers * 1023 + 1024, 0x7fffffff);
   let members: ReturnType<typeof readTar>;
   try { members = readTar(verifiedPackageTar(bytes, expected, cap)); }
-  catch (error) {
-    if (error instanceof TarUnsafeNameError) unsafe(prefix, error.memberName, 'invalid path');
-    throw error;
+  catch (error: any) {
+    if (error instanceof HcsFailure) throw error;
+    if (error instanceof TarUnsafeNameError) unsafe(prefix, 'HCS-0001-R019', error.memberName, 'invalid path');
+    if (error?.code === 'ERR_BUFFER_TOO_LARGE' || error?.message === 'Package decompression limit exceeded') invalid(prefix, 'HCS-0001-R023', 'limit', 'size limit');
+    return invalid(prefix, 'HCS-0001-R023', 'malformed', 'malformed archive');
   }
-  if (members.length > maxMembers) throw new Error('Package member limit exceeded');
-  let total = 0; const names = new Set<string>();
+  if (members.length > maxMembers) invalid(prefix, 'HCS-0001-R023', 'limit', 'member limit');
+  let total = 0; const names = new Set<string>(), files = new Set<string>(), parents = new Set<string>();
   for (const member of members) {
     const name = member.name;
-    if (!name || name.startsWith('/') || name.includes('\\') || name.includes('\0') || name.split('/').includes('..')) unsafe(prefix, name, 'invalid path');
+    if (name.startsWith('/') || name.includes('\\') || name.includes('\0') || name.split('/').includes('..')) unsafe(prefix, 'HCS-0001-R019', name, 'invalid path');
     const normalized = posix.normalize(name).replace(/\/$/, '');
-    if (!normalized || normalized === '.' || names.has(normalized)) unsafe(prefix, name, 'duplicate or empty path');
+    if (normalized === '.') unsafe(prefix, 'HCS-0001-R019', name, 'empty path');
+    if (name.split('/').some(part => part.startsWith('.wh.'))) unsafe(prefix, 'HCS-0001-R019', name, 'whiteout');
+    if (member.type !== '0' && member.type !== '5') unsafe(prefix, 'HCS-0001-R020', name, 'unsupported type');
+    if (member.type === '5' && member.size !== 0) unsafe(prefix, 'HCS-0001-R020', name, 'directory data');
+    if (names.has(normalized)) unsafe(prefix, 'HCS-0001-R021', name, 'duplicate path');
     names.add(normalized);
-    if (name.split('/').some(part => part.startsWith('.wh.'))) unsafe(prefix, name, 'whiteout');
-    if (member.type !== '0' && member.type !== '5') unsafe(prefix, name, 'unsupported type');
-    if (member.type === '5' && member.size !== 0) unsafe(prefix, name, 'directory data');
-    total += member.size; if (total > maxBytes) throw new Error('Package size limit exceeded');
+    const pieces = normalized.split('/'), ancestors = pieces.slice(0, -1).map((_, i) => pieces.slice(0, i + 1).join('/'));
+    if (ancestors.some(a => files.has(a)) || (member.type === '0' && parents.has(normalized))) unsafe(prefix, 'HCS-0001-R021', name, 'below regular file');
+    for (const a of ancestors) parents.add(a);
+    if (member.type === '0') files.add(normalized);
+    total += member.size; if (total > maxBytes) invalid(prefix, 'HCS-0001-R023', 'limit', 'size limit');
   }
+  return members;
+}
+// `detailPrefix` names the extension members of a `package_invalid` error (`<prefix>-archive`, `-member`, `-reason`).
+export function unpackPackage(bytes: Uint8Array, expected: PackageExpected, targetDir: string, limits: PackageLimits = {}, detailPrefix = DEFAULT_DETAIL_PREFIX): void {
+  checkDetailPrefix(detailPrefix);
+  verifyTransport(bytes, expected);
+  if (taken(targetDir)) throw new Error('Package target already exists');
+  const members = readPackageMembers(bytes, expected, limits, detailPrefix);
   const partial = `${targetDir}.partial-${randomBytes(16).toString('hex')}`;
   mkdirSync(partial, { mode: 0o700 });
   try {

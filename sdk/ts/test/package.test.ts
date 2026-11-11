@@ -21,6 +21,7 @@ function unsafe(name: string, type = '0') {
   tar.write(sum.toString(8).padStart(6, '0') + '\0 ', 148, 8, 'ascii'); return gzipSync(tar);
 }
 function mismatch(error: any) { assert.equal(error.errors?.[0]?.code, 'integrity_mismatch'); return true; }
+function invalid(error: any) { assert.equal(error.errors?.[0]?.code, 'package_invalid'); return true; }
 
 test('build is deterministic across order and timestamps with fixed gzip header', scratch(dir => {
   const a = join(dir, 'a'), b = join(dir, 'b'); mkdirSync(a); mkdirSync(b);
@@ -44,16 +45,16 @@ test('verification checks size then sha256 and sha512 before writing', scratch(d
 test('unsafe members are rejected with typed details and no leftovers', scratch(dir => {
   for (const [name, type] of [['/abs','0'], ['a/../b','0'], ['a\\b','0'], ['.wh.foo','0'], ['.wh..wh..opq','0'], ['link','1'], ['link','2'], ['device','3'], ['device','4'], ['pipe','6']]) {
     const bytes = unsafe(name, type), target = join(dir, 'out');
-    assert.throws(() => unpackPackage(bytes, expected(bytes), target), (e: any) => { mismatch(e); assert.equal(e.errors[0].details['x-hcs-sdk-archive'], 'unsafe-member'); assert.equal(e.errors[0].details['x-hcs-sdk-member'], name); assert.ok(e.errors[0].details['x-hcs-sdk-reason']); return true; });
+    assert.throws(() => unpackPackage(bytes, expected(bytes), target), (e: any) => { invalid(e); assert.equal(e.errors[0].details['x-hcs-sdk-archive'], 'unsafe-member'); assert.equal(e.errors[0].details['x-hcs-sdk-member'], name); assert.ok(e.errors[0].details['x-hcs-sdk-reason']); return true; });
     assert.equal(existsSync(target), false); assert.deepEqual(readdirSync(dir), []);
   }
-  const dup = gzipSync(writeTar([{ name: 'a' }, { name: 'a' }])); assert.throws(() => unpackPackage(dup, expected(dup), join(dir, 'out')), mismatch);
+  const dup = gzipSync(writeTar([{ name: 'a' }, { name: 'a' }])); assert.throws(() => unpackPackage(dup, expected(dup), join(dir, 'out')), invalid);
 }));
 
 test('the detail prefix passed by the caller names the unsafe-member details', scratch(dir => {
   const bytes = unsafe('/abs', '0');
   assert.throws(() => unpackPackage(bytes, expected(bytes), join(dir, 'out'), {}, 'x-acme'), (e: any) => {
-    mismatch(e); assert.deepEqual(Object.keys(e.errors[0].details).sort(), ['x-acme-archive', 'x-acme-member', 'x-acme-reason']); return true;
+    invalid(e); assert.deepEqual(Object.keys(e.errors[0].details).sort(), ['x-acme-archive', 'x-acme-member', 'x-acme-reason']); return true;
   });
   assert.throws(() => unpackPackage(bytes, expected(bytes), join(dir, 'out'), {}, 'acme'), RangeError);
   assert.deepEqual(readdirSync(dir), []);
@@ -67,26 +68,26 @@ test('hidden NUL name bytes are unsafe and malformed tar is rejected before extr
     tar.write(tar.subarray(0, 512).reduce((a, b) => a + b, 0).toString(8).padStart(6, '0') + '\0 ', 148, 8, 'ascii');
     const bytes = gzipSync(tar);
     assert.throws(() => unpackPackage(bytes, expected(bytes), join(dir, 'out')), (e: any) => {
-      mismatch(e); assert.equal(e.errors[0].details['x-hcs-sdk-archive'], 'unsafe-member');
+      invalid(e); assert.equal(e.errors[0].details['x-hcs-sdk-archive'], 'unsafe-member');
       assert.ok(e.errors[0].details['x-hcs-sdk-member']); assert.ok(e.errors[0].details['x-hcs-sdk-reason']); return true;
     });
     assert.deepEqual(readdirSync(dir), []);
   }
   const tar = writeTar([{ name: 'file' }]); tar[0] ^= 1;
   const bytes = gzipSync(tar);
-  assert.throws(() => unpackPackage(bytes, expected(bytes), join(dir, 'out')), /checksum/);
+  assert.throws(() => unpackPackage(bytes, expected(bytes), join(dir, 'out')), invalid);
   assert.deepEqual(readdirSync(dir), []);
 }));
 
 test('extraction failure removes a partially populated directory', scratch(dir => {
   const bytes = gzipSync(writeTar([{ name: 'a', data: Buffer.from('written') }, { name: 'a/child', data: Buffer.from('failure') }]));
-  assert.throws(() => unpackPackage(bytes, expected(bytes), join(dir, 'out')));
+  assert.throws(() => unpackPackage(bytes, expected(bytes), join(dir, 'out')), invalid);
   assert.deepEqual(readdirSync(dir), []);
 }));
 
 test('unpack enforces limits, seals files and directories, and requires a fresh target', scratch(dir => {
   const bytes = gzipSync(writeTar([{ name: 'd/', type: 'directory' }, { name: 'd/f', data: Buffer.from('hello') }]));
-  for (const limits of [{ maxBytes: 4 }, { maxMembers: 1 }]) { assert.throws(() => unpackPackage(bytes, expected(bytes), join(dir, 'out'), limits)); assert.deepEqual(readdirSync(dir), []); }
+  for (const limits of [{ maxBytes: 4 }, { maxMembers: 1 }]) { assert.throws(() => unpackPackage(bytes, expected(bytes), join(dir, 'out'), limits), invalid); assert.deepEqual(readdirSync(dir), []); }
   const target = join(dir, 'out'); unpackPackage(bytes, expected(bytes), target);
   assert.equal(readFileSync(join(target, 'd/f'), 'utf8'), 'hello'); assert.equal(statSync(target).mode & 0o777, 0o555); assert.equal(statSync(join(target, 'd')).mode & 0o777, 0o555); assert.equal(statSync(join(target, 'd/f')).mode & 0o777, 0o444);
   assert.throws(() => unpackPackage(bytes, expected(bytes), target));
