@@ -1,7 +1,7 @@
 // Version and shape checks (HCS-0007-R001, R002, R004), mirroring
 // schemas/hcs-0007/signed-catalog/v0.1/signed-catalog.schema.json without a schema validator.
 import { CanonicalError, canonicalize } from './canonical.ts';
-import { fail, HCS_VERSION, MAX_SAFE, type SigningError } from './types.ts';
+import { fail, HCS_VERSION, MAX_SAFE, type Limits, type SigningError } from './types.ts';
 
 type Obj = Record<string, unknown>;
 const isObject = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -57,8 +57,28 @@ const isBinding = (v: unknown) => isObject(v) && Object.keys(v).length >= 1
 
 type MemberRules = Record<string, (v: unknown) => boolean>;
 
-/** Runs `hcsVersion` first, then the schema rules, then the canonical form; returns at most one error. */
-function checkDocument(doc: unknown, what: string, rules: MemberRules, required: string[], versionRequirement: string, shapeRequirement: string): SigningError[] {
+/**
+ * R022 and R023, after the shape: one item per `keyid` in `signatures`, then the host's bounds.
+ * Messages name list positions, never the document's text. Nothing is verified here.
+ */
+function checkSignatureList(doc: Obj, what: string, limits: Limits | undefined): SigningError[] {
+  const signatures = (doc.signatures ?? []) as { keyid: string }[];
+  const first = new Map<string, number>();
+  for (const [i, { keyid }] of signatures.entries()) {
+    const seen = first.get(keyid);
+    if (seen !== undefined) return [fail('manifest_invalid', `${what} signatures[${i}] repeats the keyid of signatures[${seen}]`, 'HCS-0007-R022')];
+    first.set(keyid, i);
+  }
+  if (limits?.maxSignatures !== undefined && signatures.length > limits.maxSignatures)
+    return [fail('manifest_invalid', `${what} has ${signatures.length} signatures, over the host limit of ${limits.maxSignatures}`, 'HCS-0007-R023')];
+  const keys = doc.keys as unknown[] | undefined;
+  if (limits?.maxKeys !== undefined && keys && keys.length > limits.maxKeys)
+    return [fail('manifest_invalid', `${what} has ${keys.length} keys, over the host limit of ${limits.maxKeys}`, 'HCS-0007-R023')];
+  return [];
+}
+
+/** Runs `hcsVersion` first, then the schema rules, then the canonical form, then R022 and R023; returns at most one error. */
+function checkDocument(doc: unknown, what: string, rules: MemberRules, required: string[], versionRequirement: string, shapeRequirement: string, limits?: Limits): SigningError[] {
   if (isObject(doc) && typeof doc.hcsVersion === 'string' && doc.hcsVersion !== HCS_VERSION)
     return [fail('unsupported_hcs_version', `${what} hcsVersion ${JSON.stringify(doc.hcsVersion)} is not supported`, versionRequirement)];
   const invalid = (detail: string, requirement = shapeRequirement) => [fail('manifest_invalid', `${what} ${detail}`, requirement)];
@@ -71,11 +91,11 @@ function checkDocument(doc: unknown, what: string, rules: MemberRules, required:
   }
   try { canonicalize(doc); }
   catch (e) { if (e instanceof CanonicalError) return invalid(`has no canonical form: ${e.message}`, 'HCS-0007-R004'); throw e; }
-  return [];
+  return checkSignatureList(doc, what, limits);
 }
 
 /** Step 1 of HCS-0007 section 5.2: version and shape of an envelope (R001, R004). */
-export function checkEnvelopeShape(doc: unknown): SigningError[] {
+export function checkEnvelopeShape(doc: unknown, limits?: Limits): SigningError[] {
   return checkDocument(doc, 'envelope', {
     hcsVersion: v => v === HCS_VERSION,
     sequence: v => isInt(v, 1, MAX_SAFE),
@@ -83,18 +103,18 @@ export function checkEnvelopeShape(doc: unknown): SigningError[] {
     binding: isBinding,
     catalog: v => isObject(v) && isCanonicalValue(v),
     signatures: isSignatures,
-  }, ['hcsVersion', 'sequence', 'expires', 'binding', 'catalog'], 'HCS-0007-R001', 'HCS-0007-R001');
+  }, ['hcsVersion', 'sequence', 'expires', 'binding', 'catalog'], 'HCS-0007-R001', 'HCS-0007-R001', limits);
 }
 
 /** Version and shape of a key set, including unique keyids (R002, R004). */
-export function checkKeySetShape(doc: unknown): SigningError[] {
+export function checkKeySetShape(doc: unknown, limits?: Limits): SigningError[] {
   const errors = checkDocument(doc, 'key set', {
     hcsVersion: v => v === HCS_VERSION,
     version: v => isInt(v, 1, MAX_SAFE),
     threshold: v => isInt(v, 1, 255),
     keys: v => Array.isArray(v) && v.length >= 1 && v.every(isOnlineKey),
     signatures: isSignatures,
-  }, ['hcsVersion', 'version', 'keys'], 'HCS-0007-R002', 'HCS-0007-R002');
+  }, ['hcsVersion', 'version', 'keys'], 'HCS-0007-R002', 'HCS-0007-R002', limits);
   if (errors.length) return errors;
   const ids = (doc as { keys: { keyid: string }[] }).keys.map(k => k.keyid);
   if (new Set(ids).size !== ids.length) return [fail('manifest_invalid', 'key set lists the same keyid twice', 'HCS-0007-R002')];

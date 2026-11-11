@@ -48,6 +48,12 @@ export interface AcceptedKeySet { version: number; digest: string }
 /** Accepted state of the last envelope (HCS-0007 section 3.3). */
 export interface AcceptedEnvelope { sequence: number; digest: string }
 
+/**
+ * Bounds a host may set on a document (HCS-0007-R023); a document over a bound is `manifest_invalid`
+ * before any signature is verified. HCS states no number.
+ */
+export interface Limits { maxKeys?: number; maxSignatures?: number }
+
 /** A stated clock: an RFC 3339 UTC timestamp or a Date. */
 export type Clock = string | Date;
 
