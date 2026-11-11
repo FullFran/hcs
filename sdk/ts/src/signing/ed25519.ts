@@ -2,7 +2,7 @@
 import { createPrivateKey, createPublicKey, KeyObject, randomBytes, sign, verify } from 'node:crypto';
 
 const SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
-const PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex');
+export const PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex');
 
 function privateKeyObject(key: Uint8Array | KeyObject): KeyObject {
   if (key instanceof KeyObject) {

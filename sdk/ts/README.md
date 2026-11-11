@@ -44,8 +44,45 @@ Older closed-schema catalog validators reject `contentId`; this draft addition d
 | `src/transport.ts` | HCS-0006 | RE;write 7e9e903 `src/hcs/transport.ts` |
 | `src/host.ts` | HCS-0003 (host profile) | RE;write 7e9e903 `src/hcs/host.ts` |
 | `src/signing/` (exported as `signing`) | HCS-0007 (DISTRO-1) | written from the spec and `conformance/runner/distro1.py` |
+| `src/signing/keys.ts` (`signing.isPrivateKeyMaterial`, `seedToPem`, `readSignerPem`) | HCS-0007 (R019, key handling) | SDK extension: PKCS#8 PEM key files and a private-key guard |
+| `src/cli/` (the `hcs-sdk` binary, not exported from the library) | HCS-0007 (R002, R003, R004), HCS-0001 (R007, R017) | SDK extension: publisher CLI over `signing` and `buildPackage` |
 | `src/projection/` (exported as `projection`) | HCS-0008 (host adapter), host lock (SDK extension) | written from the spec and `conformance/runner/projection.py` |
 | `src/mcp-server.ts` | HCS-0008 (R010, R011) | written from the spec and `conformance/runner/projection.py` |
+
+## Publisher CLI
+
+The package installs an `hcs-sdk` binary (`dist/cli/bin.js`) for publishers. It uses only `node:` modules, has no network access and uploads nothing, so a root key can stay on an offline machine (HCS-0007-R019).
+
+```
+hcs-sdk keygen       --keyid <id> --out <private.pem> [--force]
+hcs-sdk sign-keys    --in <keyset.json> --signer <keyid>=<private.pem> [--signer ...] --out <keys.json> [--force]
+hcs-sdk sign-catalog --catalog <catalog.json> --sequence <n> --expires <RFC 3339 UTC> --binding <k=v> [--binding ...]
+                     --signer <keyid>=<private.pem> [--signer ...] --out <envelope.json> [--force]
+hcs-sdk pack         <dir> --out <package.tar.gz> [--force]
+```
+
+- `keygen` writes a PKCS#8 PEM Ed25519 private key (readable with `openssl pkey -in key.pem -text`) created atomically with mode `0600`, and prints only `{"keyid","keytype","public"}`. It never prints the seed or the PEM.
+- `sign-keys` checks the key set shape (`checkKeySetShape`) and signs it with the root signers (`signKeySet`). The input must not contain private key material.
+- `sign-catalog` validates the catalog with `readCatalog` first (a catalog HCS-0001 rejects is never signed), then builds and signs the envelope (`createEnvelope`). `--sequence` is a positive safe integer, `--expires` an RFC 3339 UTC timestamp, `--binding` is repeated `key=value`.
+- `pack` runs `buildPackage` on a directory, writes the `.tar.gz` and prints `{"contentHash","size","contentId","mediaType"}`. Symlinks are refused.
+- No command overwrites an existing `--out` without `--force`. Output is written to a temporary name and moved into place.
+- A key file readable by group or others (`mode & 0o077`) is refused with a `chmod 600` hint. Error messages never include file contents.
+- Exit codes: `0` success, `1` operational error (HCS failures print `code: message` per error), `2` usage error. Machine output on stdout is canonical JSON (RFC 8785); signed documents are written as indented JSON, since the signature covers the canonical form, not the file bytes.
+
+Worked example:
+
+```sh
+hcs-sdk keygen --keyid root-1   --out root.pem   > root.public.json     # keep root.pem offline
+hcs-sdk keygen --keyid online-1 --out online.pem > online.public.json
+# keyset.json: {"hcsVersion":"0.1","version":1,"keys":[{ ...online.public.json, "notBefore":"2026-01-01T00:00:00Z","notAfter":"2027-01-01T00:00:00Z" }]}
+hcs-sdk sign-keys --in keyset.json --signer root-1=root.pem --out keys.json
+hcs-sdk pack ./my-plugin --out my-plugin.tar.gz                          # contentHash, size, contentId for the catalog entry
+hcs-sdk sign-catalog --catalog catalog.json --sequence 1 --expires 2026-11-13T00:00:00Z \
+  --binding tenant=t-0001 --binding profile=desktop --binding channel=stable \
+  --signer online-1=online.pem --out envelope.json
+```
+
+Limit: a bare 32-byte seed is byte-for-byte indistinguishable from a 32-byte public key, so `signing.isPrivateKeyMaterial` cannot detect it. That is why key files are PEM, which is self-describing. The guard detects PEM `PRIVATE KEY` / `ENCRYPTED PRIVATE KEY` / `OPENSSH PRIVATE KEY` blocks, a JWK with a `d` member and a PKCS#8 DER prefix of an Ed25519 key (also base64 encoded, and nested inside JSON). The CLI applies it to files that must hold public keys; hosts that ingest public keys from users can call it too. `checkKeySetShape` and `assertTrustAnchor` are unchanged. The `Signer` type still accepts a raw seed or a `KeyObject`; `signing.seedToPem` and `signing.readSignerPem` convert between a seed and the PEM key file format.
 
 ## Projection (HCS-0008)
 
