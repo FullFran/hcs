@@ -31,7 +31,7 @@ Both were read from the published documents (`layer.md` at tag v1.1.1 and the no
 
 ## Consequences
 
-- A package that contains a link, device, FIFO or extended header record is refused even where a host could extract it safely. Producers using `buildPackage` or any plain tar of regular files and directories are unaffected. A tar made with GNU tar long-name or pax records needs its names to fit the ustar `prefix`/`name` fields.
+- A package that contains a link, device, FIFO or extended header record is refused even where a host could extract it safely. Producers using `buildPackage`, or a ustar-format tar of regular files and directories whose members are listed by name, are unaffected; the next point covers the one common exception. A tar made with GNU tar long-name or pax records needs its names to fit the ustar `prefix`/`name` fields.
 - A tar of a directory made with `tar -C dir .` has a `./` root member, which is an empty path under R019. Producers leave it out; `buildPackage` never writes one.
 - The SDK reported these refusals as `integrity_mismatch` and a malformed tar or limit as an untyped error; it now reports `package_invalid` for all of them. A caller that branched on `integrity_mismatch` for an unsafe member must also handle `package_invalid`.
 - Distributions that kept an `x-` code for this condition move to the registry code (HCS-0006 section 4.4).
