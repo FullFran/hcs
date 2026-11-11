@@ -62,6 +62,7 @@ hcs-sdk pack         <dir> --out <package.tar.gz> [--force]
 ```
 
 - `keygen` writes a PKCS#8 PEM Ed25519 private key (readable with `openssl pkey -in key.pem -text`) created atomically with mode `0600`, and prints only `{"keyid","keytype","public"}`. It never prints the seed or the PEM.
+- Numbers in the input of `sign-keys` and `sign-catalog` must be written as plain integers (`-?(0|[1-9][0-9]*)`): `1.0`, `1e2` and `-0` are refused as `manifest_invalid` citing HCS-0007-R004, with the offset of the token and never the file's text.
 - `sign-keys` checks the key set shape (`checkKeySetShape`) and signs it with the root signers (`signKeySet`). The input must not contain private key material.
 - `sign-catalog` validates the catalog with `readCatalog` first (a catalog HCS-0001 rejects is never signed), then builds and signs the envelope (`createEnvelope`). `--sequence` is a positive safe integer, `--expires` an RFC 3339 UTC timestamp, `--binding` is repeated `key=value`.
 - `pack` runs `buildPackage` on a directory, writes the `.tar.gz` and prints `{"contentHash","size","contentId","mediaType"}`. Symlinks are refused.

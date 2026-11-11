@@ -6,13 +6,23 @@ export class CanonicalError extends TypeError {
   override name = 'CanonicalError';
 }
 
-/** A number token whose spelling HCS-0007-R004 does not allow. */
-class NumberSpellingError extends CanonicalError {
-  override name = 'NumberSpellingError';
+// R004: the token, not the value, decides. No fraction, no exponent and no `-0`; within the safe range.
+const INTEGER_TOKEN = /^-?(0|[1-9][0-9]*)$/;
+const MAX_SAFE_BIG = BigInt(Number.MAX_SAFE_INTEGER);
+
+/** The first R004 violation of a number token, or null. Offsets only: the message never quotes the text. */
+function tokenViolation(token: string, offset: number): string | null {
+  if (!INTEGER_TOKEN.test(token) || token === '-0') return `number token at offset ${offset} is not spelled as a plain integer`;
+  const n = BigInt(token);
+  return n > MAX_SAFE_BIG || n < -MAX_SAFE_BIG ? `number token at offset ${offset} is outside the safe integer range` : null;
 }
 
-// R004: the token, not the value, decides. No fraction, no exponent, no `-0`, no leading zero or plus sign.
-const INTEGER_TOKEN = /^-?(0|[1-9][0-9]*)$/;
+/** Throws when a string or member name holds an unpaired surrogate. Numbers are not judged here. */
+function assertWellFormed(value: unknown): void {
+  if (typeof value === 'string') { if (!value.isWellFormed()) throw new CanonicalError('string contains an unpaired surrogate'); }
+  else if (Array.isArray(value)) value.forEach(assertWellFormed);
+  else if (typeof value === 'object' && value !== null) for (const [k, v] of Object.entries(value)) { assertWellFormed(k); assertWellFormed(v); }
+}
 
 const SHORT_ESCAPES: Record<string, string> = { '"': '\\"', '\\': '\\\\', '\b': '\\b', '\f': '\\f', '\n': '\\n', '\r': '\\r', '\t': '\\t' };
 
@@ -52,10 +62,12 @@ export function canonicalBytes(value: unknown): Uint8Array {
 }
 
 /**
- * Throws CanonicalError when a member name repeats inside one object, and NumberSpellingError when a
- * number token is not spelled as R004 allows. Assumes `text` is valid JSON. Messages carry offsets only.
+ * Throws CanonicalError when a member name repeats inside one object. Returns the first R004 violation
+ * of a number token, without stopping, so that the rest of the text is still judged readable.
+ * Assumes `text` is valid JSON. Messages carry offsets only.
  */
-function assertUniqueMembers(text: string): void {
+function scanText(text: string): string | null {
+  let violation: string | null = null;
   const stack: { keys: Set<string> | null; expectKey: boolean }[] = [];
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
@@ -67,7 +79,7 @@ function assertUniqueMembers(text: string): void {
       let j = i + 1;
       while (j < text.length && /[0-9.eE+-]/.test(text[j])) j++;
       const token = text.slice(i, j);
-      if (!INTEGER_TOKEN.test(token) || token === '-0') throw new NumberSpellingError(`number token at offset ${i} is not spelled as a plain integer`);
+      violation ??= tokenViolation(token, i);
       i = j - 1;
     }
     else if (ch === '"') {
@@ -83,24 +95,32 @@ function assertUniqueMembers(text: string): void {
       i = j;
     }
   }
+  return violation;
 }
 
 /**
- * Parses JSON bytes or text received from the wire and rejects what has no canonical form
- * (HCS-0007 section 4): invalid UTF-8, duplicated member names, unpaired surrogates and numbers
- * outside the canonical domain or spelled other than `-?(0|[1-9][0-9]*)` (R004: `1.0`, `1e2`, `-0`).
- * `JSON.parse` alone silently keeps the last duplicated member. Error messages never quote the text.
+ * Parses JSON bytes or text received from the wire in two stages (HCS-0007 section 5.2).
+ * Stage 1 rejects what is not readable: invalid UTF-8, a syntax error, a duplicated member name and an
+ * unpaired surrogate (R003). Stage 3 judges the number tokens: a number not spelled `-?(0|[1-9][0-9]*)`
+ * or outside the safe range (R004: `1.0`, `1e2`, `-0`) fails with `value` set to the readable
+ * document, so a caller can read `hcsVersion` (stage 2) before it reports the number. `JSON.parse` alone
+ * silently keeps the last duplicated member. Error messages never quote the text.
  */
-export function parseStrictJson(input: string | Uint8Array): { ok: true; value: unknown } | { ok: false; errors: SigningError[] } {
+export function parseStrictJson(input: string | Uint8Array):
+  { ok: true; value: unknown } | { ok: false; errors: SigningError[]; value?: unknown } {
+  let value: unknown;
+  let violation: string | null;
   try {
     const text = typeof input === 'string' ? input : new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(input);
-    const value: unknown = JSON.parse(text);
-    assertUniqueMembers(text);
-    canonicalize(value);
-    return { ok: true, value };
+    value = JSON.parse(text);
+    violation = scanText(text);
+    assertWellFormed(value);
+    if (violation === null) canonicalize(value);
   } catch (e) {
     // Echo nothing of the text: JSON.parse messages quote it, so only our own errors keep their reason.
     const message = e instanceof CanonicalError ? e.message : 'the text is not valid UTF-8 JSON';
-    return { ok: false, errors: [fail('manifest_invalid', `document has no canonical form: ${message}`, e instanceof NumberSpellingError ? 'HCS-0007-R004' : 'HCS-0007-R003')] };
+    return { ok: false, errors: [fail('manifest_invalid', `document has no canonical form: ${message}`, 'HCS-0007-R003')] };
   }
+  if (violation !== null) return { ok: false, value, errors: [fail('manifest_invalid', `document has no canonical form: ${violation}`, 'HCS-0007-R004')] };
+  return { ok: true, value };
 }

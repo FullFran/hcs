@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkEnvelopeShape, checkKeySetShape, parseStrictJson, signingInput, CanonicalError, verifyKeySet, verifySignedCatalog } from '../../src/signing/index.ts';
+import { checkEnvelopeShape, checkKeySetShape, readEnvelope, readKeySet, signingInput, CanonicalError, verifyKeySet, verifySignedCatalog } from '../../src/signing/index.ts';
 import { readCatalog } from '../../src/catalog.ts';
 
 const CASES = fileURLToPath(new URL('../../../../conformance/cases/', import.meta.url));
@@ -22,8 +22,11 @@ const validateCatalog = (c: unknown) => { const r = readCatalog(JSON.stringify(c
 function run(c: Case): { errors: Err[]; signing?: string } {
   let inp = c.input;
   if (c.documentBase64 !== undefined) {
-    // The case carries the exact text of the document: parse it strictly, as a host reads the received bytes.
-    const parsed = parseStrictJson(new Uint8Array(Buffer.from(c.documentBase64, 'base64')));
+    // The case carries the exact text of the document: read it as a host reads the received bytes
+    // (readable, then hcsVersion, then R004 and shape), before any verification.
+    const bytes = new Uint8Array(Buffer.from(c.documentBase64, 'base64'));
+    const keySetText = c.level === 'document' ? c.target === `${SIGNED}#/$defs/keySet` : inp.check === 'key-set';
+    const parsed = (keySetText ? readKeySet : readEnvelope)(bytes, inp?.limits);
     if (!parsed.ok) return { errors: parsed.errors };
     if (c.level === 'document') inp = parsed.value;
     else inp = { ...inp, [inp.check === 'key-set' ? 'keySet' : 'envelope']: parsed.value };
@@ -64,5 +67,5 @@ test('HCS-0007 conformance cases', t => {
   t.diagnostic(summary);
   console.log(summary);
   assert.deepEqual(failures, []);
-  assert.ok(counts.pass >= 37 + 13 + 26, 'every distribution case and every HCS-0007 shape case ran');
+  assert.ok(counts.pass >= 37 + 13 + 34, 'every distribution case and every HCS-0007 shape case ran');
 });
