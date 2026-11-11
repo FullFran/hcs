@@ -4,7 +4,8 @@
 // not applicable; `distribution` is measured by the signing tests.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, chmodSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { evaluate as evaluateAuthority, type Check, type Denial, type Grant } from '../src/authority.ts';
 import { readCatalog, type CatalogManifest } from '../src/catalog.ts';
@@ -12,8 +13,14 @@ import { HcsFailure } from '../src/errors.ts';
 import { planRecovery, type HostFactsInput } from '../src/host-state.ts';
 import type { HostProfile } from '../src/host.ts';
 import { validateEntryStatus } from '../src/lifecycle.ts';
-import { verifyPackage, verifiedPackageTar, type PackageExpected } from '../src/package.ts';
+import { unpackPackage, verifyPackage, verifiedPackageTar, type PackageExpected } from '../src/package.ts';
 import { resolve as resolveCatalog } from '../src/resolve.ts';
+
+// An unpacked tree is sealed read-only; make it removable again.
+function unseal(dir: string): void {
+  chmodSync(dir, 0o700);
+  for (const entry of readdirSync(dir, { withFileTypes: true })) if (entry.isDirectory()) unseal(join(dir, entry.name));
+}
 
 const REPO = resolve(import.meta.dirname, '..', '..', '..');
 const CASES = join(REPO, 'conformance', 'cases');
@@ -38,9 +45,14 @@ const runners: Record<string, (value: HcsCase) => void> = {
     assert.equal(validateEntryStatus(value.input).length === 0 ? 'valid' : 'invalid', value.expect.outcome);
   },
   integrity: value => {
-    const { entry, contentBase64, maxUncompressedBytes } = value.input as { entry: PackageExpected; contentBase64: string; maxUncompressedBytes?: number };
+    const { entry, contentBase64, maxUncompressedBytes, unpack, maxMembers, maxUnpackedBytes } = value.input as { entry: PackageExpected; contentBase64: string; maxUncompressedBytes?: number; unpack?: boolean; maxMembers?: number; maxUnpackedBytes?: number };
     assert.equal(typeof contentBase64, 'string');
-    const verify = () => entry.contentId !== undefined && maxUncompressedBytes !== undefined
+    // `unpack` cases run the whole extraction (HCS-0001-R019 to R023) into a scratch directory removed afterwards.
+    const verify = unpack ? () => {
+      const dir = mkdtempSync(join(tmpdir(), 'hcs-conformance-unpack-'));
+      try { unpackPackage(Buffer.from(contentBase64, 'base64'), entry, join(dir, 'out'), { maxBytes: maxUnpackedBytes, maxMembers }); }
+      finally { unseal(dir); rmSync(dir, { recursive: true, force: true }); }
+    } : () => entry.contentId !== undefined && maxUncompressedBytes !== undefined
       ? verifiedPackageTar(Buffer.from(contentBase64, 'base64'), entry, maxUncompressedBytes)
       : verifyPackage(Buffer.from(contentBase64, 'base64'), entry);
     if (value.expect.outcome === 'valid') { assert.doesNotThrow(verify); return; }

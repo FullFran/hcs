@@ -32,7 +32,9 @@ The runner exits non-zero on any failing or malformed case, and when a MUST/MUST
 
 ## Integrity cases (HCS-0001)
 
-`input.entry` gives the expected `id`, `size`, `contentHash` and optional `contentId`; `input.contentBase64` contains the fetched compressed bytes. Transport verification precedes decompression. Without `contentId`, the integrity level retains transport-only behavior (the existing valid non-gzip fixture remains valid). With it, gzip/decompression-limit failures or a mismatched identity yield `integrity_mismatch`. This level hashes exact tar bytes; it does not extract or validate archive members.
+`input.entry` gives the expected `id`, `size`, `contentHash` and optional `contentId`; `input.contentBase64` contains the fetched compressed bytes. Transport verification precedes decompression. Without `contentId`, the integrity level retains transport-only behavior (the existing valid non-gzip fixture remains valid). With it, gzip/decompression-limit failures or a mismatched identity yield `integrity_mismatch`. This level hashes exact tar bytes; it never extracts an archive.
+
+When `input.unpack` is `true`, the level also checks the archive members after those verifications (HCS-0001-R019 to R023) and expects `package_invalid` for a forbidden member, a tar that cannot be parsed or an exceeded host limit. `input.maxMembers` and `input.maxUnpackedBytes` set the host limits for the case; without them the runner uses 256 MiB of unpacked data and 10,000 members, which are runner defaults and not HCS numbers. Cases without `unpack` behave as before.
 
 The reference runner bounds total decompressed output to 256 MiB + 10,000 × 1,023 + 1,024 bytes and hashes fixed-size chunks. Fixtures can set `input.maxUncompressedBytes` to a smaller nonnegative whole-stream cap to exercise boundaries without allocating large archives. The SDK conformance adapter applies the same fixture cap. The focused runner tests are `python3 -B -m unittest discover -s conformance/runner -p test_content_identity.py` (requires the same jsonschema dependency as the runner).
 

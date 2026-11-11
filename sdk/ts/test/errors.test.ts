@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { HCS_ERROR_CODES, HcsFailure, hcsError, isHcsErrorCode } from '../src/errors.ts';
 
 test('HCS-0006-R002 error codes form a closed set', () => {
-  assert.equal(HCS_ERROR_CODES.length, 16);
+  assert.equal(HCS_ERROR_CODES.length, 17);
+  assert.equal(isHcsErrorCode('package_invalid'), true);
   assert.equal(isHcsErrorCode('integrity_mismatch'), true);
   assert.equal(isHcsErrorCode('quote_not_literal'), false);
   assert.throws(() => hcsError('not_a_code' as never, 'x'), TypeError);

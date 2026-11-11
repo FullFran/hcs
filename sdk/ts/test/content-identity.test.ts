@@ -80,7 +80,7 @@ test('bounded identity verification retains extraction limits and member safety'
     const bytes = gzipSync(tar), expected = entry(bytes, digest(tar));
     assert.throws(() => unpackPackage(bytes, expected, join(dir, 'out'), { maxBytes: 0, maxMembers: 0 }), mismatch);
     const unsafeTar = writeTar([{ name: '.wh.deleted' }]), unsafeBytes = gzipSync(unsafeTar);
-    assert.throws(() => unpackPackage(unsafeBytes, entry(unsafeBytes, digest(unsafeTar)), join(dir, 'out')), mismatch);
+    assert.throws(() => unpackPackage(unsafeBytes, entry(unsafeBytes, digest(unsafeTar)), join(dir, 'out')), (error: any) => error.errors[0].code === 'package_invalid' && error.errors[0].requirement === 'HCS-0001-R019');
     assert.deepEqual(readdirSync(dir), []);
     mkdirSync(join(dir, 'src'));
     const built = buildPackage(join(dir, 'src'));

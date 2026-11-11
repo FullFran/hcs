@@ -98,6 +98,7 @@ Core kinds reference external standards and do not restate them:
 - A distribution can define further media types in a vendor tree (for example `application/vnd.example.package.v1.tar+gzip`); a host that does not implement one reports `unsupported_contribution` for the entry (R013) and leaves the rest of the catalog to resolution.
 - A deterministic archive (R014) lists members in byte order of their names, stores zero modification times, owner and group ids and names, and is compressed with fixed settings and no gzip file name or timestamp. Determinism is a producer property; a host cannot check it and does not try.
 - `size` and `contentHash` describe the compressed bytes exactly as fetched (R007), never the unpacked tree.
+- Hashes say the bytes are the ones the publisher described, not that unpacking them is safe. A host refuses a package whose tar has an unsafe or duplicate member, cannot be parsed, or exceeds a limit the host sets (R019 to R023). Those refusals are `package_invalid`, not `integrity_mismatch`: the bytes are exactly what the publisher described, so fetching them again from another location cannot help ([ADR-0033](../docs/adr/0033-archive-member-safety.md)).
 
 Document limits (R015) protect a host from a hostile document that exhausts memory or the parser stack before validation can reject it. The floor values let a producer know what every host accepts; a host can accept more.
 
@@ -143,6 +144,16 @@ Producers can omit `contentId`; consumers then retain the existing `contentHash`
 
 **[HCS-0001-R018]** When `contentId` is present, a host MUST verify it against the exact uncompressed tar stream after verifying `size` and `contentHash`, using bounded decompression and before using any package content (including permission requests and extraction); it MUST report `integrity_mismatch` when decompression or identity verification fails, and MUST retain its extraction safety checks and resource limits. A host making decisions from this identity MUST protect its association with the authenticated catalog entry and MUST NOT interpret an absent identity as equality.
 
+**[HCS-0001-R019]** A host MUST refuse a package whose tar has a member with an empty path, an absolute path, a `..` segment, a NUL or a backslash in its path, or a path component that starts with `.wh.` (an OCI whiteout name), and MUST report `package_invalid`. A path is empty when it names no member below the package root: an empty name, or one made only of `/` and `.` segments.
+
+**[HCS-0001-R020]** A host MUST refuse a package whose tar has a member that is neither a regular file nor a directory (so every symbolic link, hard link, character or block device, FIFO and extended header record), or a directory member that carries data, and MUST report `package_invalid`.
+
+**[HCS-0001-R021]** A host MUST refuse a package whose tar has a member whose path equals the path of an earlier member, or lies below the path of a regular file member whatever the order of the members, and MUST report `package_invalid`. Paths are compared after resolving `.` segments and removing a trailing `/`.
+
+**[HCS-0001-R022]** A host MUST check member safety (R019 to R021, R023) after verifying `size`, `contentHash` and, when declared, `contentId` (R007, R018), which keep their `integrity_mismatch` errors; MUST finish those checks before writing any member to its final location; and MUST leave no part of a refused package at that location.
+
+**[HCS-0001-R023]** A host MUST refuse a package whose tar cannot be parsed, or whose unpacked size or member count exceeds a limit the host sets, and MUST report `package_invalid`. A host MAY set such limits; HCS states no number. When `contentId` is declared, a failed or over-limit decompression stays `integrity_mismatch` (R018).
+
 **[HCS-0001-R008]** A host MUST NOT activate an entry that has a contribution whose `kind` it does not implement, and MUST report `unsupported_contribution` for that entry.
 
 **[HCS-0001-R009]** When `compatibility.platforms` is present, a host MUST NOT activate the entry unless one item matches the host platform, and MUST report `platform_incompatible` otherwise.
@@ -168,5 +179,5 @@ A platform item matches when `os` and `architecture` are equal to the host's and
 - OQ-0001-3: reduced. `compatibility.hosts` with exact version lists is defined (section 3.3, R016). Remaining question: version ranges, which need a version ordering HCS does not define (ADR-0004).
 - OQ-0001-4: closed here. The catalog `version` stays opaque; rollback protection is the envelope `sequence` of [HCS-0007](HCS-0007-signed-catalog.md).
 - OQ-0001-5: closed here. The signature input over a catalog is defined by [HCS-0007](HCS-0007-signed-catalog.md) section 4.
-- OQ-0001-6: archive member safety (absolute names, `..` segments, links, device files, OCI whiteout entries) when unpacking section 3.4 packages. A host needs a rule; which members HCS forbids and which error a violation reports is open.
+- OQ-0001-6: closed here. Archive member safety is R019 to R023 (section 3.4, [ADR-0033](../docs/adr/0033-archive-member-safety.md)); a violation reports `package_invalid` ([HCS-0006](HCS-0006-errors.md)).
 - Mandatory entries (an entry that distribution policy forbids removing) stay a distribution extension; HCS-0000-R004 keeps such a member from changing any validity verdict ([lf-fit-distro-1-and-core-0.md](../docs/research/lf-fit-distro-1-and-core-0.md) row 6).

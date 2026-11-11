@@ -5,8 +5,7 @@ import { evaluate, readRequestDocument, type Grant, type PermissionRequest } fro
 import type { CatalogEntry } from './catalog.ts';
 import { HcsFailure, hcsError } from './errors.ts';
 import { isDottedId } from './ids.ts';
-import { fetchPackageBytes, verifiedPackageTar } from './package.ts';
-import { readTar } from './tar.ts';
+import { fetchPackageBytes, readPackageMembers } from './package.ts';
 
 // Grants held by the host, one record per entry and permission (HCS-0005). They live in
 // `<data-dir>/grants.json` and are read again on every check, so a revocation applies to the next
@@ -60,7 +59,7 @@ export function revokePermission(dataDir: string, entry: string, permission: str
 
 // The permissions a verified package requests. No package code runs: the archive is only read.
 export function packageRequests(bytes: Uint8Array, entry: CatalogEntry): PermissionRequest[] {
-  const members = readTar(verifiedPackageTar(bytes, entry))
+  const members = readPackageMembers(bytes, entry)
     .filter(member => posix.normalize(member.name).replace(/\/$/, '') === REQUEST_DOCUMENT);
   if (members.length === 0) return [];
   if (members.length > 1 || members[0].type !== '0') throw new Error('Invalid request document');

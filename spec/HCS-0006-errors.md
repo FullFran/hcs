@@ -44,6 +44,7 @@ A host that composes plugins fails in a small number of ways that callers need t
 | `duplicate_entry` | two catalog entries share an `id` | HCS-0001 |
 | `integrity_mismatch` | fetched content does not match `size` or `contentHash`, or a declared `contentId` cannot be verified against the bounded uncompressed tar stream | HCS-0001 |
 | `unsupported_contribution` | the host does not implement a contribution `kind` or the entry's package `mediaType`, or its host adapter cannot project that kind into the engine, or cannot start a bundled MCP server as declared (no host runtime for its `runtimeHint`, runtime arguments or control variables, a secret argument; HCS-0008 6.4.1) | HCS-0001, HCS-0008 |
+| `package_invalid` | a package whose bytes passed verification is not a well-formed tar, exceeds the host's unpack limits, or has a member HCS-0001 forbids (R019 to R023) | HCS-0001 |
 | `platform_incompatible` | no `compatibility.platforms` item matches the host platform | HCS-0001 |
 | `missing_dependency` | no entry or host built-in provides a required capability id | HCS-0003 |
 | `version_incompatible` | the capability id is provided, but not at the required contract major; or `compatibility.hosts` does not list this host's id and version (no `capability` member then) | HCS-0003, HCS-0001 |
@@ -56,6 +57,8 @@ A host that composes plugins fails in a small number of ways that callers need t
 | `signature_invalid` | a signed catalog envelope or key set is unsigned, has a bad signature, does not meet its threshold, or has expired | HCS-0007 |
 | `rollback_rejected` | a signed catalog envelope or key set is older than the last accepted one, or reuses its sequence or version with different content | HCS-0007 |
 | `generation_mismatch` | an ACP `session/load` asks to reopen a session on a generation other than the one it was created with | HCS-0008 |
+
+For `package_invalid` a host sets `requirement` to the HCS-0001 requirement the package violates and SHOULD name the member path in an extension member of `details`; it never copies member content into `message` or `details`. The code is separate from `integrity_mismatch` because the bytes are exactly what the publisher described: fetching them again from another location cannot help ([ADR-0033](../docs/adr/0033-archive-member-safety.md)).
 
 The table is the single registry of HCS error codes. A profile that needs a new code adds a row here naming itself in the last column; it does not keep a code list of its own ([ADR-0014](../docs/adr/0014-profile-error-codes-join-the-core-registry.md)). A host that does not implement that profile never raises its codes.
 
