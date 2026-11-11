@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""HCS reference conformance runner (document, integrity, resolution, authority, distribution, projection and client levels).
+"""HCS reference conformance runner (document, integrity, resolution, authority, distribution, projection, recovery and client levels).
 
 Usage:
   python3 conformance/runner/run.py [--report PATH] [--selftest] [-v]
 
 It validates every case in conformance/cases against conformance/case.schema.json, executes
-document/integrity/resolution/authority/distribution/projection/client cases with the reference semantics below
+document/integrity/resolution/authority/distribution/projection/recovery/client cases with the reference semantics below
 (distribution: HCS-0007, implemented in distro1.py; projection: HCS-0008, in projection.py), reports host
 cases as pending, and enforces HCS-0000-R001/R002 (case coverage) against
 requirements/requirements.json. Exit code 0 only when every executed case passes and coverage holds.
@@ -30,6 +30,7 @@ from referencing.jsonschema import DRAFT202012
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import distro1  # noqa: E402
 import projection  # noqa: E402
+import recovery  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SUPPORTED_HCS = {"0.1"}
@@ -311,7 +312,7 @@ def norm(errors):
     return sorted(json.dumps({k: e[k] for k in ("code", "entry", "capability") if k in e}, sort_keys=True) for e in errors)
 
 
-def run_case(case):
+def run_case(case, polarity="valid"):
     level, inp, exp = case["level"], case["input"], case["expect"]
     if level == "host":
         return "pending", None
@@ -349,6 +350,11 @@ def run_case(case):
         got = projection.project(inp)
         ok = norm(got["errors"]) == norm(exp["errors"]) and got["selected"] == exp["selected"]
         return ("pass" if ok else "fail"), got
+    if level == "recovery":
+        got = recovery.recover(inp)
+        # An invalid case states the decision a non-conforming host takes; the reference must differ.
+        ok = all(got[k] == v for k, v in exp.items()) == (polarity == "valid")
+        return ("pass" if ok else "fail"), got
     raise ValueError(level)
 
 
@@ -382,6 +388,7 @@ def main(argv):
         selftest()
         distro1.selftest()
         projection.selftest()
+        recovery.selftest()
     verbose = "-v" in argv
     requirements = json.loads((ROOT / "requirements" / "requirements.json").read_text())["requirements"]
     case_validator = validator_for(CASE)
@@ -401,7 +408,7 @@ def main(argv):
         for rid in case["requirements"]:
             refs.append((rel, rid, polarity))
         try:
-            status, got = run_case(case)
+            status, got = run_case(case, polarity)
         except Exception as exc:  # a crash is a failure, reported with its reason
             status, got = "fail", {"exception": repr(exc)}
         counts[status] += 1

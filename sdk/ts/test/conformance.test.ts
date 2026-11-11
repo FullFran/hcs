@@ -5,10 +5,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { evaluate as evaluateAuthority, type Check, type Denial, type Grant } from '../src/authority.ts';
 import { readCatalog, type CatalogManifest } from '../src/catalog.ts';
 import { HcsFailure } from '../src/errors.ts';
+import { planRecovery, type HostFactsInput } from '../src/host-state.ts';
 import type { HostProfile } from '../src/host.ts';
 import { validateEntryStatus } from '../src/lifecycle.ts';
 import { verifyPackage, verifiedPackageTar, type PackageExpected } from '../src/package.ts';
@@ -19,7 +20,7 @@ const CASES = join(REPO, 'conformance', 'cases');
 const STATUSES = ['pass', 'fail', 'not-applicable'] as const;
 type Status = typeof STATUSES[number];
 
-interface HcsCase { requirements: string[]; level: string; target?: string; input: unknown; expect: Record<string, unknown> }
+interface HcsCase { polarity: string; requirements: string[]; level: string; target?: string; input: unknown; expect: Record<string, unknown> }
 interface Result { path: string; level: string; status: Status; reason: string }
 type ExpectedError = { code: string; entry?: string; capability?: string };
 
@@ -64,6 +65,13 @@ const runners: Record<string, (value: HcsCase) => void> = {
     }
     assert.deepEqual(remaining, []);
   },
+  // An invalid case states the decision of a non-conforming host: the SDK's decision must differ from it.
+  recovery: value => {
+    const input = value.input as { persisted: HostFactsInput; onDisk?: number[] };
+    const got = planRecovery(input.persisted, input.onDisk ?? []) as unknown as Record<string, unknown>;
+    const matches = Object.entries(value.expect).every(([key, expected]) => JSON.stringify(got[key]) === JSON.stringify(expected));
+    assert.equal(matches, value.polarity === 'valid');
+  },
   authority: value => {
     // Requests are part of the case input but never reach the evaluator (HCS-0005-R002, R004).
     const input = value.input as { grants: Grant[]; denials?: Denial[]; check: Check };
@@ -96,7 +104,7 @@ function caseFiles(dir: string): string[] {
 }
 
 const results: Result[] = caseFiles(CASES).map(file => {
-  const value = JSON.parse(readFileSync(file, 'utf8')) as HcsCase;
+  const value = { ...JSON.parse(readFileSync(file, 'utf8')), polarity: basename(dirname(file)) } as HcsCase;
   return { path: relative(REPO, file), level: value.level, ...classify(value) };
 });
 
@@ -121,7 +129,7 @@ test('every case is read and classified, and every claimed level has cases', () 
 });
 
 test('host cases and levels without a runner are not applicable; a wrong expectation fails', () => {
-  const failing: HcsCase = { requirements: ['HCS-0005-R001'], level: 'authority', input: { grants: [], check: { entry: 'a.b', permission: 'a.b.c' } }, expect: { decision: { allow: true } } };
+  const failing: HcsCase = { polarity: 'valid', requirements: ['HCS-0005-R001'], level: 'authority', input: { grants: [], check: { entry: 'a.b', permission: 'a.b.c' } }, expect: { decision: { allow: true } } };
   assert.equal(classify(failing).status, 'fail');
   assert.equal(classify({ ...failing, level: 'host' }).status, 'not-applicable');
   assert.match(classify({ ...failing, level: 'client' }).reason, /no runner for level client/);
