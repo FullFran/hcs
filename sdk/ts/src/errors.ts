@@ -19,6 +19,7 @@ export const HCS_ERROR_CODES = [
   'plugin_failed',
   'signature_invalid',
   'rollback_rejected',
+  'generation_mismatch',
 ] as const;
 
 export type HcsErrorCode = (typeof HCS_ERROR_CODES)[number];
