@@ -80,6 +80,7 @@
         "id": { "$ref": "#/$defs/packageId" },
         "version": { "$ref": "#/$defs/opaqueVersion" },
         "contentHash": { "$ref": "#/$defs/contentHash" },
+        "contentId": { "$ref": "#/$defs/contentHash", "not": { "pattern": "\\n" }, "description": "Optional digest of the exact uncompressed tar stream, not the extracted tree (HCS-0001-R017/R018)." },
         "size": { "type": "integer", "minimum": 0 },
         "mediaType": {
           "description": "Media type of the package bytes (HCS-0001-R011, section 3.4).",

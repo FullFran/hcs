@@ -27,6 +27,10 @@
 - Unregistered but grammatical digests (e.g. `sha256+b64u:...`, `multihash+base58:...`) SHOULD pass validation.
 - Digest = `'<alg>:' + Encode(H(bytes))` over the exact bytes, no implicit canonicalization.
 
+### Uncompressed layer identity (for HCS-0001)
+
+OCI image-spec v1.1.1 `config.md#layer-diffid` defines a layer DiffID as a digest of its uncompressed tar archive, while the manifest layer descriptor digest identifies the distributed (possibly compressed) blob. HCS-0001 uses this distinction for optional `contentId` versus unchanged `contentHash` / `size` ([ADR-0030](../adr/0030-uncompressed-package-identity.md)). HCS is not embedding an OCI image config or claiming tree identity: tar ordering, headers and padding remain part of the hashed bytes. No new canonical tar format is imposed. Verify transport first, then bounded decompression and uncompressed identity; the signed HCS catalog binds the two.
+
 ## Extension points
 - Annotations: keys SHOULD use reverse-domain notation (`com.example.myKey`); prefix `org.opencontainers` is reserved for OCI specs, and `org.opencontainers.image` for image-spec only; consumers MUST NOT error on unknown keys; values are strings (may be empty).
 - Custom media types and `artifactType` values (vendor tree `application/vnd.<org>...`); implementations MUST NOT error on unknown `artifactType`.
@@ -34,6 +38,7 @@
 
 ## Where HCS references it instead of redefining
 - HCS-0000/HCS-0001 `contentHash` SHOULD reuse the OCI digest grammar and registered algorithms verbatim (`sha256:<64 lowercase hex>`) and cite image-spec `descriptor.md#digests` rather than defining a new grammar.
+- HCS-0001 optional `contentId` follows the uncompressed-tar byte domain of DiffID, not a filesystem tree digest; older closed HCS schemas reject the added field (HCS-0001 section 3.5).
 - HCS-0001 `size` has the same meaning as descriptor `size` (exact byte length); HCS cites it.
 - DISTRO-1 MAY ship an HCS package as an OCI artifact (`artifactType` = an HCS media type) and attach signatures/SBOMs via `subject` + referrers; HCS MUST NOT restate the registry API.
 - HCS annotations on OCI objects use a non-reserved reverse-domain prefix, never `org.opencontainers.*`.
@@ -46,6 +51,7 @@
 - Referrers API support varies by registry; the tag-schema fallback has races (conditional requests are only MAY).
 
 ## Sources
+- https://github.com/opencontainers/image-spec/blob/v1.1.1/config.md#layer-diffid (pinned definition referenced for the uncompressed layer byte domain)
 - https://github.com/opencontainers/image-spec/blob/v1.1.1/descriptor.md (read 2026-11-06)
 - https://github.com/opencontainers/image-spec/blob/v1.1.1/annotations.md (read 2026-11-06)
 - https://github.com/opencontainers/image-spec/blob/v1.1.1/manifest.md (read 2026-11-06)

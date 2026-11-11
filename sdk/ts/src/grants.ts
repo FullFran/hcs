@@ -1,12 +1,11 @@
 import { closeSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, writeSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { gunzipSync } from 'node:zlib';
 import { evaluate, readRequestDocument, type Grant, type PermissionRequest } from './authority.ts';
 import type { CatalogEntry } from './catalog.ts';
 import { HcsFailure, hcsError } from './errors.ts';
 import { isDottedId } from './ids.ts';
-import { fetchPackageBytes, verifyPackage } from './package.ts';
+import { fetchPackageBytes, verifiedPackageTar } from './package.ts';
 import { readTar } from './tar.ts';
 
 // Grants held by the host, one record per entry and permission (HCS-0005). They live in
@@ -16,7 +15,6 @@ const GRANTS_FILE = 'grants.json';
 // The request document at the root of a package (HCS-0005 request document).
 export const REQUEST_DOCUMENT = 'requests.json';
 const MAX_REQUEST_DOCUMENT = 65_536;
-const MAX_PACKAGE_BYTES = 256 * 1024 * 1024 + 10_000 * 1023 + 1024;
 
 
 // `grantable` is the distribution's permission set: only these permissions can be granted to a package,
@@ -62,8 +60,7 @@ export function revokePermission(dataDir: string, entry: string, permission: str
 
 // The permissions a verified package requests. No package code runs: the archive is only read.
 export function packageRequests(bytes: Uint8Array, entry: CatalogEntry): PermissionRequest[] {
-  verifyPackage(bytes, entry);
-  const members = readTar(gunzipSync(bytes, { maxOutputLength: MAX_PACKAGE_BYTES }))
+  const members = readTar(verifiedPackageTar(bytes, entry))
     .filter(member => posix.normalize(member.name).replace(/\/$/, '') === REQUEST_DOCUMENT);
   if (members.length === 0) return [];
   if (members.length > 1 || members[0].type !== '0') throw new Error('Invalid request document');

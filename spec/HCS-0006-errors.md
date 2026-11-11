@@ -42,7 +42,7 @@ A host that composes plugins fails in a small number of ways that callers need t
 | `manifest_invalid` | a document fails its HCS schema, or an MCP `server.json` in a generation fails its schema or carries a secret value | HCS-0001, HCS-0008 |
 | `unsupported_hcs_version` | `hcsVersion` names a contract the host does not implement | HCS-0001 |
 | `duplicate_entry` | two catalog entries share an `id` | HCS-0001 |
-| `integrity_mismatch` | fetched content does not match `size` or `contentHash` | HCS-0001 |
+| `integrity_mismatch` | fetched content does not match `size` or `contentHash`, or a declared `contentId` cannot be verified against the bounded uncompressed tar stream | HCS-0001 |
 | `unsupported_contribution` | the host does not implement a contribution `kind` or the entry's package `mediaType`, or its host adapter cannot project that kind into the engine, or cannot start a bundled MCP server as declared (no host runtime for its `runtimeHint`, runtime arguments or control variables, a secret argument; HCS-0008 6.4.1) | HCS-0001, HCS-0008 |
 | `platform_incompatible` | no `compatibility.platforms` item matches the host platform | HCS-0001 |
 | `missing_dependency` | no entry or host built-in provides a required capability id | HCS-0003 |
