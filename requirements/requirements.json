@@ -467,7 +467,7 @@
       "id": "HCS-0007-R002",
       "document": "HCS-0007",
       "keyword": "MUST",
-      "text": "A key set MUST validate against the HCS-0007 key set schema and MUST NOT list two keys with the same `keyid`; a host MUST report `manifest_invalid` otherwise.",
+      "text": "A host MUST check a key set's `hcsVersion` before its shape and report `unsupported_hcs_version` when it is not supported, as R001 requires for envelopes; a key set MUST then validate against the HCS-0007 key set schema and MUST NOT list two keys with the same `keyid`, and a host MUST report `manifest_invalid` otherwise.",
       "source": "spec/HCS-0007-signed-catalog.md"
     },
     {
@@ -481,7 +481,7 @@
       "id": "HCS-0007-R004",
       "document": "HCS-0007",
       "keyword": "MUST NOT",
-      "text": "An envelope or key set MUST NOT contain a number that is not an integer between -(2^53-1) and 2^53-1.",
+      "text": "An envelope or key set MUST NOT contain a number whose token in the received text is not spelled `-?(0|[1-9][0-9]*)` with a value between -(2^53-1) and 2^53-1, and `-0` is not allowed; a host MUST report `manifest_invalid` citing this requirement otherwise.",
       "source": "spec/HCS-0007-signed-catalog.md"
     },
     {
@@ -524,6 +524,20 @@
       "document": "HCS-0007",
       "keyword": "MUST",
       "text": "A host MUST validate the enclosed catalog as HCS-0001 requires, after every envelope check has passed, and MUST NOT accept an envelope whose catalog fails that validation.",
+      "source": "spec/HCS-0007-signed-catalog.md"
+    },
+    {
+      "id": "HCS-0007-R022",
+      "document": "HCS-0007",
+      "keyword": "MUST NOT",
+      "text": "An envelope or key set MUST NOT list two items of `signatures` with the same `keyid`; a host MUST report `manifest_invalid` and MUST do so before verifying any signature.",
+      "source": "spec/HCS-0007-signed-catalog.md"
+    },
+    {
+      "id": "HCS-0007-R023",
+      "document": "HCS-0007",
+      "keyword": "MUST",
+      "text": "A host that limits the number of keys in a key set or of items in `signatures` MUST report `manifest_invalid` for a document that exceeds a limit and MUST do so before verifying any signature; HCS states no number, and a host MAY set such limits.",
       "source": "spec/HCS-0007-signed-catalog.md"
     },
     {

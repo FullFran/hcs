@@ -92,7 +92,8 @@ def check_catalog(doc):
     return errors
 
 
-def check_document(target, doc):
+def check_document(target, doc, limits=None):
+    """limits: optional host bounds {"maxKeys", "maxSignatures"} (HCS-0007-R023)."""
     if target == CATALOG:
         return check_catalog(doc)
     if target in (ENVELOPE, KEY_SET) and isinstance(doc, dict) and isinstance(doc.get("hcsVersion"), str) \
@@ -102,6 +103,14 @@ def check_document(target, doc):
         return [err("manifest_invalid")]
     if target == KEY_SET and len({k["keyid"] for k in doc["keys"]}) != len(doc["keys"]):
         return [err("manifest_invalid")]
+    if target in (ENVELOPE, KEY_SET):
+        ids = [s["keyid"] for s in doc.get("signatures", [])]
+        if len(set(ids)) != len(ids):  # HCS-0007-R022, before any signature is verified
+            return [err("manifest_invalid")]
+        limits = limits or {}
+        if len(ids) > limits.get("maxSignatures", len(ids)) or (
+                target == KEY_SET and len(doc["keys"]) > limits.get("maxKeys", len(doc["keys"]))):  # R023
+            return [err("manifest_invalid")]
     if target == ERROR + "#/$defs/problemDetails" and doc["type"] != "urn:hcs:error:" + doc["hcsError"]["code"]:
         return [err("manifest_invalid")]
     return []
@@ -279,9 +288,22 @@ def extract_hcs_error(inp):
 
 # ---------- distribution level (HCS-0007) ----------
 
-def run_distribution(inp):
-    """Returns (errors, signing input or None). See conformance/README.md for the input shapes."""
+def parse_received(data):
+    """(document, errors): the received bytes parsed strictly (HCS-0007 R003, R004); the error never quotes them."""
+    try:
+        return distro1.parse_text(data), []
+    except distro1.StrictJsonError:
+        return None, [err("manifest_invalid")]
+
+
+def run_distribution(inp, document=None):
+    """Returns (errors, signing input or None). See conformance/README.md for the input shapes.
+
+    document: the exact bytes of the envelope (check envelope) or key set (check key-set) when the case
+    carries them as text (documentBase64); they are parsed where the document is first read.
+    """
     check = inp["check"]
+    limits = inp.get("limits")
     if check == "signing-input":
         try:
             return [], distro1.signing_input(inp["payloadType"], inp["document"]).decode("utf-8")
@@ -290,17 +312,26 @@ def run_distribution(inp):
     now, anchor = inp["now"], inp["trustAnchor"]
     if not schema_valid(SIGNED + "#/$defs/trustAnchor", anchor):
         raise ValueError("trust anchor does not match its schema")
-    errors = check_document(KEY_SET, inp["keySet"])
+    key_set = inp.get("keySet")
+    if document is not None and check == "key-set":
+        key_set, errors = parse_received(document)
+        if errors:
+            return errors, None
+    errors = check_document(KEY_SET, key_set, limits)
     if errors:
         return errors, None
-    code = distro1.check_key_set(inp["keySet"], anchor, inp.get("lastKeySet"), now)
+    code = distro1.check_key_set(key_set, anchor, inp.get("lastKeySet"), now)
     if code or check == "key-set":
         return ([err(code)] if code else []), None
-    envelope = inp["envelope"]
-    errors = check_document(ENVELOPE, envelope)
+    envelope = inp.get("envelope")
+    if document is not None:
+        envelope, errors = parse_received(document)
+        if errors:
+            return errors, None
+    errors = check_document(ENVELOPE, envelope, limits)
     if errors:
         return errors, None
-    code = distro1.check_envelope(envelope, inp["keySet"], inp["assignment"], inp.get("lastAccepted"), now)
+    code = distro1.check_envelope(envelope, key_set, inp["assignment"], inp.get("lastAccepted"), now)
     if code:
         return [err(code)], None
     return check_catalog(envelope["catalog"]), None
@@ -313,16 +344,21 @@ def norm(errors):
 
 
 def run_case(case, polarity="valid"):
-    level, inp, exp = case["level"], case["input"], case["expect"]
+    level, inp, exp = case["level"], case.get("input"), case["expect"]
+    document = base64.b64decode(case["documentBase64"], validate=True) if "documentBase64" in case else None
     if level == "host":
         return "pending", None
     if level in ("document", "integrity"):
-        errors = check_document(case["target"], inp) if level == "document" else check_integrity(inp)
+        errors = []
+        if document is not None:  # the received text first: no canonical form means no document
+            inp, errors = parse_received(document)
+        if not errors:
+            errors = check_document(case["target"], inp) if level == "document" else check_integrity(inp)
         outcome = "invalid" if errors else "valid"
         ok = outcome == exp["outcome"] and ("errors" not in exp or norm(errors) == norm(exp["errors"]))
         return ("pass" if ok else "fail"), {"outcome": outcome, "errors": errors}
     if level == "distribution":
-        errors, signing = run_distribution(inp)
+        errors, signing = run_distribution(inp, document)
         got = {"outcome": "invalid" if errors else "valid", "errors": errors}
         if signing is not None:
             got["signingInput"] = signing
