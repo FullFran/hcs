@@ -63,6 +63,8 @@ Distributions extend HCS documents only through extension members.
 
 **[HCS-0000-R004]** An extension member MUST NOT change the validity verdict a host reaches for the members defined by HCS.
 
+R003 concerns the presence and meaning of an extension member, not its encoding: a rule that applies to a whole document still applies inside extension members. For example, a signed document with an out-of-range number inside an `x-` member is rejected under [HCS-0007](HCS-0007-signed-catalog.md) R004, because the signature input covers that member too.
+
 R003 cases check that unknown extension members are accepted and that names outside the extension grammar are not. R004 cases check that an extension member cannot make an otherwise invalid document valid (for example an `x-` flag that claims to waive integrity checks).
 
 ## 8. Conformance cases
