@@ -144,6 +144,19 @@ test('activation failure rolls back every entry, stopping in reverse activation 
   assert.deepEqual(statusReport(stateDir).flatMap(s => validateEntryStatus(s)), []);
 }));
 
+test('a generation number is never reused, even after the host removes a failed generation', fixture(async ({ stateDir, storeDir, entry, catalog }) => {
+  const activator: Activator = { activate: async e => { if (e.id.endsWith('.bad')) throw Error('bad'); }, stop: async () => {} };
+  const options = { host, stateDir, storeDir, activator };
+  assert.equal((await applyDesiredSet(catalog(entry('a')), options)).generation, 1);
+  await assert.rejects(applyDesiredSet(catalog(entry('bad')), options), failure(e => assert.equal(e.errors[0].code, 'plugin_failed')));
+  assert.equal(pointer(stateDir), 1);
+  // The host cleans up the failed generation 2.
+  const failed = join(stateDir, 'generations', '2');
+  unseal(failed); rmSync(failed, { recursive: true, force: true });
+  assert.equal((await applyDesiredSet(catalog(entry('b')), options)).generation, 3);
+  assert.equal(pointer(stateDir), 3);
+}));
+
 test('a step over the deadline aborts its signal, fails with timeout and rolls back', fixture(async ({ stateDir, storeDir, entry, catalog }) => {
   let aborted = false; const stopped: string[] = [];
   const activator: Activator = {

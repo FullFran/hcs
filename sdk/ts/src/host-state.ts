@@ -258,9 +258,14 @@ function unsealTree(dir: string): void {
   for (const entry of readdirSync(dir, { withFileTypes: true })) if (entry.isDirectory()) unsealTree(join(dir, entry.name));
 }
 
+// Generation numbers are never reused, so a number always names one generation even after the host
+// removes old or failed ones. The last number handed out is persisted before the generation is prepared;
+// the directory scan only covers state written before this record existed.
 function nextGeneration(stateDir: string, current: number | null): number {
-  let max = current ?? 0;
+  const last = readJson(join(stateDir, 'last-generation')) as { generation?: unknown } | null;
+  let max = Math.max(current ?? 0, last && Number.isSafeInteger(last.generation) ? last.generation as number : 0);
   for (const name of readdirSync(generationsDir(stateDir))) if (/^[1-9][0-9]*$/.test(name)) max = Math.max(max, Number(name));
+  writeAtomic(stateDir, 'last-generation', { generation: max + 1 });
   return max + 1;
 }
 
