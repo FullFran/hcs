@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual, type Hash } from 'node:crypto';
 import { HcsFailure, hcsError } from './errors.ts';
+import { DEFAULT_DETAIL_PREFIX, checkDetailPrefix } from './extensions.ts';
 
 /** OCI-style descriptor subset: what HCS-0001 entries already carry as `contentHash` and `size`. */
 export interface BlobDescriptor {
@@ -11,35 +12,48 @@ export type ByteSource = AsyncIterable<Uint8Array>;
 export interface BlobVerifyOptions {
   /** Aborts reading; the iterator is closed (`return()`) so the underlying stream is released. */
   signal?: AbortSignal;
+  /**
+   * Extension prefix of the `details` members of an integrity failure: `<prefix>-reason` (`size_exceeded`,
+   * `size_short` or `digest_mismatch`), `<prefix>-expected-size`, `<prefix>-observed-size` and
+   * `<prefix>-observed-digest`. Defaults to the SDK's neutral prefix.
+   */
+  detailPrefix?: string;
 }
 
 const digestPattern = /^(sha256:[a-f0-9]{64}|sha512:[a-f0-9]{128})$/;
 /** True when `value` is a lowercase `sha256:` or `sha512:` digest string (the single parser of `<algorithm>:<hex>`). */
 export function isBlobDigest(value: unknown): value is string { return typeof value === 'string' && digestPattern.test(value); }
-function failure(message: string, requirement = 'HCS-0001-R007'): never { throw new HcsFailure([hcsError('integrity_mismatch', message, { requirement })]); }
+function failure(message: string, details?: Record<string, unknown>): never {
+  throw new HcsFailure([hcsError('integrity_mismatch', message, details ? { requirement: 'HCS-0001-R007', details } : { requirement: 'HCS-0001-R007' })]);
+}
 
 // Incremental size and digest check shared by all three entry points.
 class BlobVerifier {
   private readonly hash: Hash;
   private readonly expected: Buffer;
   private received = 0;
+  private detail(reason: string, more: Record<string, unknown>): Record<string, unknown> {
+    return Object.fromEntries([['reason', reason], ...Object.entries(more)].map(([key, value]) => [`${this.prefix}-${key}`, value]));
+  }
   private readonly descriptor: BlobDescriptor;
-  constructor(descriptor: BlobDescriptor) {
-    this.descriptor = descriptor;
+  private readonly prefix: string;
+  private readonly algorithm: string;
+  constructor(descriptor: BlobDescriptor, detailPrefix = DEFAULT_DETAIL_PREFIX) {
+    this.descriptor = descriptor; this.prefix = checkDetailPrefix(detailPrefix);
     if (!isBlobDigest(descriptor.digest)) failure('Invalid package content hash');
     if (!Number.isSafeInteger(descriptor.size) || descriptor.size < 0) throw new RangeError('Invalid blob size');
     const [algorithm, hex] = descriptor.digest.split(':');
-    this.hash = createHash(algorithm); this.expected = Buffer.from(hex, 'hex');
+    this.algorithm = algorithm; this.hash = createHash(algorithm); this.expected = Buffer.from(hex, 'hex');
   }
   // Throws before the offending chunk is hashed, so bytes beyond the declared size are never processed.
   push(chunk: Uint8Array): void {
-    if (this.received + chunk.length > this.descriptor.size) failure('Package download exceeds expected size');
+    if (this.received + chunk.length > this.descriptor.size) failure('Package download exceeds expected size', this.detail('size_exceeded', { 'expected-size': this.descriptor.size }));
     this.received += chunk.length; this.hash.update(chunk);
   }
   finish(): BlobDescriptor {
-    if (this.received !== this.descriptor.size) failure('Package size does not match');
+    if (this.received !== this.descriptor.size) failure('Package size does not match', this.detail('size_short', { 'expected-size': this.descriptor.size, 'observed-size': this.received }));
     const actual = this.hash.digest();
-    if (actual.length !== this.expected.length || !timingSafeEqual(actual, this.expected)) failure('Package digest does not match');
+    if (actual.length !== this.expected.length || !timingSafeEqual(actual, this.expected)) failure('Package digest does not match', this.detail('digest_mismatch', { 'observed-digest': `${this.algorithm}:${actual.toString('hex')}` }));
     return { digest: this.descriptor.digest, size: this.descriptor.size };
   }
 }
@@ -51,7 +65,7 @@ async function close(iterator: AsyncIterator<Uint8Array>): Promise<void> {
 const neverAborted = new Promise<never>(() => {});
 
 async function drain(source: ByteSource, descriptor: BlobDescriptor, options: BlobVerifyOptions | undefined, onChunk: (chunk: Uint8Array) => void): Promise<BlobDescriptor> {
-  const verifier = new BlobVerifier(descriptor), signal = options?.signal;
+  const verifier = new BlobVerifier(descriptor, options?.detailPrefix), signal = options?.signal;
   signal?.throwIfAborted();
   const iterator = source[Symbol.asyncIterator]();
   let onAbort: (() => void) | undefined;
@@ -94,8 +108,8 @@ export async function collectVerifiedBlob(source: ByteSource, descriptor: BlobDe
  * Tee-style helper for writing to a store while verifying: yields each chunk unchanged and throws after the
  * last chunk when the digest or size is wrong. Callers MUST NOT use the data before the iterator completes.
  */
-export async function* verifyingTransform(source: ByteSource, descriptor: BlobDescriptor): AsyncGenerator<Uint8Array, void, void> {
-  const verifier = new BlobVerifier(descriptor);
+export async function* verifyingTransform(source: ByteSource, descriptor: BlobDescriptor, options?: Pick<BlobVerifyOptions, 'detailPrefix'>): AsyncGenerator<Uint8Array, void, void> {
+  const verifier = new BlobVerifier(descriptor, options?.detailPrefix);
   for await (const chunk of source) { verifier.push(chunk); yield chunk; }
   verifier.finish();
 }
