@@ -80,12 +80,12 @@ def unpack(data, version, dest):
         for member in tar.getmembers():
             name = member.name
             parts = pathlib.PurePosixPath(name).parts
-            if not name.startswith(prefix) or ".." in parts or name.startswith("/"):
+            if not (name + "/").startswith(prefix) or ".." in parts or name.startswith("/"):
                 raise Refused(f"member outside {prefix}: {name}")
             if not (member.isfile() or member.isdir()):
                 raise Refused(f"member is not a regular file or directory: {name}")
         for member in tar.getmembers():
-            target = dest / member.name[len(prefix):]
+            target = dest / member.name[len(prefix):]  # the top directory itself maps to dest
             if member.isdir():
                 target.mkdir(parents=True, exist_ok=True)
             else:

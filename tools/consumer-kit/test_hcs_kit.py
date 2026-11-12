@@ -71,6 +71,12 @@ class SyncAndVerify(TmpCase):
         self.assertTrue(pin["url"].endswith(f"/v{VERSION}/hcs-{VERSION}.tar.gz"))
         self.assertEqual(run("verify", "--root", self.root)[0], 0)
 
+    def test_sync_accepts_the_top_directory_member_of_a_release(self):
+        top = tarfile.TarInfo(f"hcs-{VERSION}")  # build_release.py writes the directory without a trailing slash
+        top.type = tarfile.DIRTYPE
+        tarball, digest = build_release(self.tmp / "assets", extra_members=[top])
+        self.assertEqual(run("sync", VERSION, digest, "--tarball", str(tarball), "--root", self.root)[0], 0)
+
     def test_sync_downloads_from_a_file_url(self):
         tarball, digest = build_release(self.tmp / "assets")
         code, text = run("sync", VERSION, digest, "--url", tarball.as_uri(), "--root", self.root)
