@@ -13,6 +13,7 @@ export * from './capabilities.ts';
 export * from './registry.ts';
 export * from './authority.ts';
 export * from './grants.ts';
+export * from './proposals.ts';
 export * from './host-state.ts';
 export * from './transport.ts';
 export * from './host.ts';

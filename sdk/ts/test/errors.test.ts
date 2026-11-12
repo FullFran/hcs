@@ -4,8 +4,9 @@ import { HCS_ERROR_CODES, HcsFailure, fromToolResult, hcsError, isHcsErrorCode, 
 import { toJsonRpcError } from '../src/transport.ts';
 
 test('HCS-0006-R002 error codes form a closed set', () => {
-  assert.equal(HCS_ERROR_CODES.length, 18);
+  assert.equal(HCS_ERROR_CODES.length, 19);
   assert.equal(isHcsErrorCode('package_invalid'), true);
+  assert.equal(isHcsErrorCode('proposal_conflict'), true);
   assert.equal(isHcsErrorCode('generation_mismatch'), true);
   assert.equal(isHcsErrorCode('integrity_mismatch'), true);
   assert.equal(isHcsErrorCode('quote_not_literal'), false);

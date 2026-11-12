@@ -20,7 +20,7 @@ What existing standards cover and what they do not:
 
 ## 2. Objects
 
-- **Permission id:** a dotted id (HCS-0000 common `dottedId`), for example `dev.example.fs.read`. HCS 0.1 defines no permission ids (OQ-0005-1).
+- **Permission id:** a dotted id (HCS-0000 common `dottedId`), for example `dev.example.fs.read`. HCS 0.1 defines no permission ids (OQ-0005-1). For an agent write the permission id is the proposal's action type (HCS-0010-R012).
 - **Request** (`permissionRequest`): `{ "permission": <permission id>, "reason": <string, optional> }`, listed in an entry's `requests` array in an HCS-0005 request document, or in the catalog manifest under a future version (OQ-0005-3).
 - **Grant** (`grant`): `{ "entry": <package id>, "permission": <permission id> }`, a record held by the host. Optional members: `id`, the host's identifier for the grant; `session`, which limits the grant to one session; `origin`, the `id` of the decision record of the answer that created it (section 3.2). Other scope dimensions (project, subject, operation) are OQ-0005-2.
 - **Denial** (`denial`): the same shape as a grant, stored when a person answers "always reject" (section 3.2). A matching denial wins over a matching grant.
@@ -101,7 +101,7 @@ The schema checks the shape of a record, not that its members agree with each ot
 
 ## 4. Open questions
 
-- OQ-0005-1: a minimal shared permission vocabulary (filesystem, network, process, secrets). Every harness needs one; defining it before a second consumer exists risks encoding the first host's choices.
+- OQ-0005-1: a minimal shared permission vocabulary (filesystem, network, process, secrets). Every harness needs one; defining it before a second consumer exists risks encoding the first host's choices. HCS-0010 settles how tools are grouped: an action type is a permission id, and one grant or denial covers every tool the host maps to it. It defines no ids, because the two consumers' ids are domain ones.
 - OQ-0005-2: grant scope dimensions (subject, project, operation) named in the composition map. HCS-0005 defines `session` only (section 3.2).
 - OQ-0005-3: whether requests live in the catalog manifest entry or in a document inside the package. A catalog-side list lets the host decide before fetching; a package-side list travels with the code.
 - OQ-0005-4: whether a grant survives a package version change. The current rule (grants keyed by entry id) means it does; a host can still re-ask through policy.

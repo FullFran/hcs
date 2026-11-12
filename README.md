@@ -68,7 +68,8 @@ with its JSON Schema and conformance fixtures.
   HCS-0005 (authority), HCS-0006 (typed errors), HCS-0007 (signed catalog
   distribution, the DISTRO-1 profile), HCS-0008 (host adapter: projecting a
   generation into an agent engine; Provisional), HCS-0009 (tool surface:
-  effect classes of package tools). Each lists its open questions.
+  effect classes of package tools), HCS-0010 (proposals: agent writes that a
+  person answers). Each lists its open questions.
 - `docs/research/lf-fit-distro-1-and-core-0.md`: how the DISTRO-1 and CORE-0
   changes fare against Linux Foundation practice.
 - `docs/research/host-adapter-standards.md` and `lf-fit-host-adapter.md`: the

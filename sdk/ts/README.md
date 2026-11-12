@@ -40,6 +40,7 @@ Older closed-schema catalog validators reject `contentId`; this draft addition d
 | `src/registry.ts` | HCS-0004 (R005, R006) | RE;write 7e9e903 `src/hcs/registry.ts` |
 | `src/authority.ts` | HCS-0005 | RE;write 7e9e903 `src/hcs/authority.ts` |
 | `src/grants.ts` | HCS-0005 | RE;write 7e9e903 `src/hcs/grants.ts` |
+| `src/proposals.ts` | HCS-0010 | written from the spec; behaviour studied in RE;write and training-mcp, no code copied |
 | `src/host-state.ts` | HCS-0003, HCS-0004, HCS-0005 | RE;write 7e9e903 `src/hcs/host-state.ts` |
 | `src/transport.ts` | HCS-0006 | RE;write 7e9e903 `src/hcs/transport.ts` |
 | `src/errors.ts` (`toToolResult`, `fromToolResult`, `withHcsErrorOutput`) | HCS-0006 (R007 to R009, MCP tool results) | written from the spec: `toToolResult(error, text?)` builds the `isError` result with the error in `structuredContent.hcsError` and a text item (the message by default); `fromToolResult(result)` returns the HCS error or `null`; `withHcsErrorOutput(schema)` wraps an `outputSchema` in `anyOf` with an alternative that requires `hcsError` and leaves its input unmodified |

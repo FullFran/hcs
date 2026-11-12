@@ -45,6 +45,7 @@ A host that composes plugins fails in a small number of ways that callers need t
 | `integrity_mismatch` | fetched content does not match `size` or `contentHash`, or a declared `contentId` cannot be verified against the bounded uncompressed tar stream | HCS-0001 |
 | `unsupported_contribution` | the host does not implement a contribution `kind` or the entry's package `mediaType`, or its host adapter cannot project that kind into the engine, or cannot start a bundled MCP server as declared (no host runtime for its `runtimeHint`, runtime arguments or control variables, a secret argument; HCS-0008 6.4.1) | HCS-0001, HCS-0008 |
 | `package_invalid` | a package whose bytes passed verification is not a well-formed tar, exceeds the host's unpack limits, or has a member HCS-0001 forbids (R019 to R023) | HCS-0001 |
+| `proposal_conflict` | a host refuses an answer, an undo or a retried proposal because the proposal was already answered, its target changed since it was proposed, the undo is not allowed, or its identity names a different proposal (HCS-0010 R003, R006, R008, R011) | HCS-0010 |
 | `platform_incompatible` | no `compatibility.platforms` item matches the host platform | HCS-0001 |
 | `missing_dependency` | no entry or host built-in provides a required capability id | HCS-0003 |
 | `version_incompatible` | the capability id is provided, but not at the required contract major; or `compatibility.hosts` does not list this host's id and version (no `capability` member then) | HCS-0003, HCS-0001 |
