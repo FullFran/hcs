@@ -10,7 +10,8 @@ HCS is a draft. Read the six growth rules in [README.md](README.md) first; a cha
 4. Change the schema in `schemas/` if the requirement is about document shape (rule 2).
 5. Add at least one `valid/` and one `invalid/` case per MUST in `conformance/cases/` (rule 3, HCS-0000-R001).
 6. Record any real design decision as an ADR in `docs/adr/`.
-7. Run the checks:
+7. If the change alters a principle or a requirement that [skills/hcs](skills/hcs/SKILL.md) cites, update the skill in the same pull request; it ships in the release beside the specs.
+8. Run the checks:
 
 ```sh
 python3 tools/extract_requirements.py      # regenerate requirements/requirements.json

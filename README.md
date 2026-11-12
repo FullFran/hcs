@@ -47,6 +47,7 @@ distribution metadata).
 spec/          HCS-NNNN-*.md normative documents
 schemas/       versioned JSON Schemas
 conformance/   runner, valid and invalid fixtures
+skills/        Agent Skills that apply HCS (shipped in the release)
 sdk/ts/        reference implementation in TypeScript (ADR-0029)
 sdk/rust/      generated types (when needed)
 examples/
@@ -90,7 +91,7 @@ unreleased drafts that change without notice).
 
 The release attaches `hcs-<version>.tar.gz` and `hcs-<version>.tar.gz.sha256`.
 The archive holds `spec/`, `schemas/`, `conformance/` (cases, `case.schema.json`,
-profiles, reference runner), `requirements/requirements.json`, `LICENSE`,
+profiles, reference runner), `requirements/requirements.json`, `skills/`, `LICENSE`,
 `index.json` and `SHA256SUMS` (one line per file, `sha256sum -c` format).
 
 1. **Pin the tag and its digest.** Record the version and the tarball sha256
