@@ -152,6 +152,10 @@ The summary prints one count per outcome, and `-v` lists every case. The exit co
 
 Answer `{"protocolVersion": "0.1", "status": "not-implemented", "reason": "..."}` for any case the system cannot evaluate, such as a level it has not built. Do not guess an `observed` result and do not exit non-zero: the first can pass by accident or fail for the wrong reason, the second is reported as a crash. Use `not-applicable` when the case is outside what this system claims to do. `conformance/examples/minimal-sut.mjs` implements the `authority` level and answers `not-implemented` for the others.
 
+### Consumer kit
+
+[`tools/consumer-kit/`](../tools/consumer-kit/README.md) is optional, non-normative tooling for a harness that vendors a release: it verifies the tarball against `SHA256SUMS`, records a baseline of this runner's `--report` output plus a `divergences.json` (with `notApplicable`), and fails only on regression. See also [docs/adoption.md](../docs/adoption.md).
+
 ## Profiles
 
 `profiles/core-0.json` lists the requirement ids of the CORE-0 draft profile. `profiles/distro-1.json` lists DISTRO-1 (HCS-0007), which builds on CORE-0 and fixes the host property `activationPolicy` to `all-or-nothing`. A host claims a profile by passing every case of every listed requirement, host-level cases included; no host does yet.
