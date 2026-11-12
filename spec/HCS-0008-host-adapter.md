@@ -7,7 +7,7 @@
 | Superseded when | a neutral body (for example an AAIF project) publishes an engine-neutral format for installing skills, MCP servers and instructions into an agent runtime, or MCP and Agent Skills define client-side installation; this document then profiles that format or is withdrawn |
 | Version | 0.1.0-draft |
 | Requires | HCS-0001, HCS-0003, HCS-0004, HCS-0005, HCS-0006 |
-| Schema | `schemas/hcs-0008/acp/v0.1/acp.schema.json` (`urn:hcs:schema:hcs-0008:acp:0.1`), section 6.8 |
+| Schema | `schemas/hcs-0008/acp/v0.1/acp.schema.json` (`urn:hcs:schema:hcs-0008:acp:0.1`), section 6.8; `schemas/hcs-0008/client-limits/v0.1/client-limits.schema.json` (`urn:hcs:schema:hcs-0008:client-limits:0.1`), section 6.9 |
 | Replaces | none |
 
 ## 1. Scope
@@ -130,7 +130,7 @@ A package can ship the code of a local MCP server, not only its descriptor: a sc
 
 The host owns the runtime and its flags (R023): runtime arguments, or control variables such as `NODE_OPTIONS`, in a signed descriptor would let a publisher change how the host's own runtime behaves. Arguments are readable by any local user (for example `/proc/<pid>/cmdline`); the environment is readable only by the same user and administrators, so it is less exposed (R024). A runtime that is present but fails to start the server is a health failure (R014, R015), not a projection error.
 
-When several rules apply to one `mcp-server` contribution, an adapter reports only the first, in this order: `manifest_invalid` (R010, R011, R021), then `unsupported_contribution` (R024, R023, R030), then `permission_denied` (R012). An adapter does not ask for authority for a server it will not start.
+When several rules apply to one `mcp-server` contribution, an adapter reports only the first, in this order: `manifest_invalid` (R010, R011, R021), then `unsupported_contribution` (R024, R023, R030, R037, R038), then `permission_denied` (R012). An adapter does not ask for authority for a server it will not start.
 
 Before this section, `registryType: "file"` had no meaning in HCS: R010 accepted it as an open string, and nothing said how to start it. This section gives it one; it does not change the meaning of any value HCS already defined (HCS-0000 section 5). Whether to run the code is decided by the signed catalog (HCS-0007) and the entry's content hash; what the running server may do is decided by HCS-0005 grants. HCS adds no separate allowlist of executable entries. Values given to the server also follow R030 (literal delivery).
 
@@ -176,6 +176,20 @@ Some engines are not configured through files but driven over the Agent Client P
 
 R028 follows from R001 and R002: a session's history, and any session-limited grants (HCS-0005-R006, R008), were created against one generation's code. Reopening it on another would apply them to code the person never saw. What an agent counts as a loaded MCP server is its own observation, for example that the connection completed or that the server's tools are listed. A server with no tools may be indistinguishable from one that did not start; HCS does not yet define a finer signal.
 
+
+### 6.9 Client limits for MCP projection
+
+An MCP client that shows a model a server's `instructions` and `tools/list` result may keep only part of them. The observed limit is not the same across clients and is not part of the MCP specification ([docs/standards/mcp.md](../docs/standards/mcp.md)). One documented case: OpenAI's Apps SDK guide for MCP servers says to keep the most important details of the server instructions in their first 512 characters ([ADR-0037](../docs/adr/0037-client-limits-are-host-declared.md) lists the sources). It states no limit on the size of the tool list; two harnesses keep that list under 36 KB for ChatGPT, a figure no public source confirms. HCS therefore names no number: the host declares the limits of each client it projects to, and the adapter checks against what was declared.
+
+**[HCS-0008-R036]** A host that applies a limit of an MCP client to a projection MUST declare it as a host-owned setting, valid against the `clientLimits` schema (`schemas/hcs-0008/client-limits/v0.1/client-limits.schema.json`, `urn:hcs:schema:hcs-0008:client-limits:0.1`): the client's name, and at least one of `instructionsPrefix` (a positive number of characters) and `toolListBytes` (a positive number of bytes). A limit that is not declared is not applied, and HCS defines no default.
+
+**[HCS-0008-R037]** When the client's declared limits include `toolListBytes`, an adapter MUST compare it, at projection time, with the size of the `tools` array that each projected `mcp-server` contribution answers to `tools/list` (all pages, serialized as compact JSON in UTF-8), and MUST report `unsupported_contribution` for the entry of a server whose size is greater than the limit.
+
+**[HCS-0008-R038]** When the client's declared limits include `toolListBytes` and the host supplies no measured size for a projected `mcp-server` contribution, an adapter MUST report `unsupported_contribution` for its entry, and MUST NOT assume the server fits.
+
+**[HCS-0008-R039]** An MCP server's `instructions` SHOULD give, within their first `instructionsPrefix` characters, what a model needs to use the server, for the smallest `instructionsPrefix` the host declares for a client it projects to.
+
+The error is `unsupported_contribution` (ADR-0021): the client cannot take that contribution, and R017 keeps it from failing the generation. The host measures the size by listing the tools of the server it will start, for example in a probe run before the projection; the figure is the host's observation, not a claim of the publisher. A host that serves several servers behind one endpoint compares the list the client receives from that endpoint. A server whose tool list grows after the check is a case for the health check (R013), not for projection. R039 is a SHOULD because "enough to use the server" is not a property a program can test; an adapter cannot read instructions a server only sends once it runs. Instructions beyond the prefix remain allowed. The adapter never edits, truncates or reorders a server's instructions to fit.
 
 ## 7. Confirm after health
 
@@ -231,7 +245,7 @@ No HCS-0006 code is defined for a failed pointer change: it is a host-internal f
 
 `recovery` cases run the reference function `conformance/runner/recovery.py`: the input states the persisted facts and the generations on disk, the expected output is the action a host takes after a restart and the generations a cleanup retains. R033 and R034 are checked by `recovery` cases, which use abstract facts, not a storage format. R031, R032 and R035 have `recovery` cases for the decision they imply and `host` cases for the writes and faults that need a running host, reported `pending`.
 
-`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008, R013 to R016, R019, R020, R022, R025, R028 and R030 need a running engine (R030 depends on what each engine interprets, which the reference projection does not model) and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009 and R018 are SHOULDs and have no cases. R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's. R021, R026, R027 and R029 have both `projection` or `document` cases and `host` cases: their shape is checked by schema or the reference projection, and their behaviour needs a running engine.
+`projection` cases run the reference projection in `conformance/runner/run.py`: the input states the generation, the kinds the adapter projects, the host-owned settings and the granted secrets; the expected output is the errors per entry and the entries the host may report active (`selected`). R001, R002, R008, R013 to R016, R019, R020, R022, R025, R028 and R030 need a running engine (R030 depends on what each engine interprets, which the reference projection does not model) and have `host` cases only, reported `pending`. R017 is checked by `projection` cases under `all-or-nothing`. R009, R018 and R039 are SHOULDs and have no cases. R036 has `document` cases against the `clientLimits` schema; R037 and R038 have `projection` cases (`clientLimits` in the input, `toolListBytes` on the contribution). R010 is checked by the reference runner only for the members `server.json` requires (`name`, `description`, `version`); full schema validation is the adapter's. R021, R026, R027 and R029 have both `projection` or `document` cases and `host` cases: their shape is checked by schema or the reference projection, and their behaviour needs a running engine.
 
 ## 9. Open questions
 
@@ -240,6 +254,8 @@ Closed by [ADR-0022](../docs/adr/0022-host-adapter-open-questions-decided.md) (2
 - OQ-0008-2: a shared vocabulary for host-owned settings (permission policy, safety proxy, reserved names), so two hosts can declare them the same way (HCS-0005 OQ-0005-1).
 - OQ-0008-3: whether projection outcomes need their own status document, or HCS-0004 status with HCS-0006 errors is enough. The first host needs only the latter.
 - OQ-0008-7: whether an adapter may project a `server.json` package of a registry type other than `file`, which makes the engine fetch code that the signed catalog does not cover. The first host refuses them; the current requirements allow them.
+- OQ-0008-8: whether the line-delimited JSON stdio protocol that two harnesses use to drive an engine, instead of ACP (section 6.8), becomes a second engine profile, a narrower ACP profile, or stays a distribution extension. Proposed in [ADR-0038](../docs/adr/0038-line-delimited-engine-protocol.md); this document does not change.
+- OQ-0008-9: whether a server may declare its tool-list size statically so that R037 does not need a probe run, and whether a client's limits can be discovered instead of declared.
 
 ## Appendix A. Engine mappings (non-normative)
 

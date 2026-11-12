@@ -42,6 +42,7 @@ Older closed-schema catalog validators reject `contentId`; this draft addition d
 | `src/grants.ts` | HCS-0005 | RE;write 7e9e903 `src/hcs/grants.ts` |
 | `src/host-state.ts` | HCS-0003, HCS-0004, HCS-0005 | RE;write 7e9e903 `src/hcs/host-state.ts` |
 | `src/transport.ts` | HCS-0006 | RE;write 7e9e903 `src/hcs/transport.ts` |
+| `src/errors.ts` (`toToolResult`, `fromToolResult`, `withHcsErrorOutput`) | HCS-0006 (R007 to R009, MCP tool results) | written from the spec: `toToolResult(error, text?)` builds the `isError` result with the error in `structuredContent.hcsError` and a text item (the message by default); `fromToolResult(result)` returns the HCS error or `null`; `withHcsErrorOutput(schema)` wraps an `outputSchema` in `anyOf` with an alternative that requires `hcsError` and leaves its input unmodified |
 | `src/host.ts` | HCS-0003 (host profile) | RE;write 7e9e903 `src/hcs/host.ts` |
 | `src/signing/` (exported as `signing`) | HCS-0007 (DISTRO-1) | written from the spec and `conformance/runner/distro1.py` |
 | `src/signing/keys.ts` (`signing.isPrivateKeyMaterial`, `seedToPem`, `readSignerPem`) | HCS-0007 (R019, key handling) | SDK extension: PKCS#8 PEM key files and a private-key guard |
