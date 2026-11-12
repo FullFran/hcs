@@ -4,14 +4,14 @@ Cases are data (`case.schema.json`), one file per case, in `cases/<document>/<re
 
 | Level | Executed by the reference runner | What it checks |
 | --- | --- | --- |
-| `document` | yes | a JSON document (`input`, or its exact bytes in `documentBase64`) against an HCS schema (`target`), plus semantic checks: `hcsVersion` first, duplicate entry ids, problem-details `type`/code equality |
+| `document` | yes | a JSON document (`input`, or its exact bytes in `documentBase64`) against an HCS schema (`target`), plus semantic checks: `hcsVersion` first, duplicate entry ids, problem-details `type`/code equality, and that an error tool result's `structuredContent` validates against the tool's `outputSchema` (HCS-0006-R008, target `toolCallOutput`) |
 | `integrity` | yes | `size` and `contentHash` against base64 bytes, then optional `contentId` against the bounded uncompressed tar stream (HCS-0001-R007/R018) |
 | `resolution` | yes | the HCS-0003 algorithm: activation order and typed errors |
 | `authority` | yes | the HCS-0005 evaluation: grants, stored denials (a matching denial wins) and session limits |
 | `distribution` | yes | HCS-0007: signature input, key set and envelope verification with fixture keys and a stated clock |
 | `projection` | yes | HCS-0008: the reference projection of a generation (`runner/projection.py`): errors per entry and the entries the host may report active |
 | `recovery` | yes | HCS-0008 section 7.1: the reference decision after a restart (`runner/recovery.py`): from the persisted facts, the action (`start`, `health-check`, `discard-pending`, `return`, `stop-and-report`) and the generations a cleanup retains |
-| `client` | yes | HCS-0006-R006: the HCS error a client extracts from a JSON-RPC response (`input.response`) or an RFC 9457 problem (`input.problem`); `expect.hcsError` is the error or `null`. Client test suites can run the same fixtures against their own parser |
+| `client` | yes | HCS-0006-R006, R009: the HCS error a client extracts from a JSON-RPC response (`input.response`, an error response or a `tools/call` response with a `result`) or an RFC 9457 problem (`input.problem`); `expect.hcsError` is the error or `null`. Client test suites can run the same fixtures against their own parser |
 | `host` | no, reported `pending` | a scenario and expected behaviour that needs a running host |
 
 ## Run
