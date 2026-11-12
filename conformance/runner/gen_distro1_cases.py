@@ -262,9 +262,45 @@ def cases():
     early = key_set([online("online-1"), online("online-2", nb="2026-12-01T00:00:00Z")])
     add("HCS-0007-R014", "invalid", "not-yet-valid", "A key that becomes valid next month does not sign today.", "distribution",
         verify_input(envelope(signers=("online-2",)), early), bad("signature_invalid"))
+    rotation_cases(add)
     textual_cases(add)
     signature_list_cases(add)
     return out
+
+
+def corrupt(sig):
+    """A signature of the right length that does not verify."""
+    raw = bytearray(base64.b64decode(sig))
+    raw[0] ^= 0x01
+    return b64(bytes(raw))
+
+
+def rotation_cases(add):
+    """R024 (signatures a host ignores) and R025 (the trust anchor never comes from a document)."""
+    add("HCS-0007-R024", "valid", "key-set-old-and-new-root", "A key set signed by the enrolled root and by a new root the host does not hold yet.", "distribution",
+        key_set_input(key_set(signers=("root-1", "root-2"))), ok())
+    add("HCS-0007-R024", "valid", "envelope-unknown-signer", "An envelope signed by online-1 and by a key that is not in the key set.", "distribution",
+        verify_input(envelope(signers=("online-1", "online-9"))), ok())
+    two = key_set([online("online-1"), online("online-2")])
+    e = envelope(signers=("online-1", "online-2"))
+    e["signatures"][1]["sig"] = corrupt(e["signatures"][1]["sig"])
+    add("HCS-0007-R024", "valid", "envelope-extra-signature-fails", "Threshold 1: a valid signature by online-1 and one by online-2 that does not verify.", "distribution",
+        verify_input(e, two), ok())
+    old = key_set([online("online-old", "2025-01-01T00:00:00Z", "2026-01-01T00:00:00Z"), online("online-1")])
+    add("HCS-0007-R024", "valid", "envelope-extra-signature-expired-key", "A valid signature by online-1 and one by a key of the set whose window has closed.", "distribution",
+        verify_input(envelope(signers=("online-1", "online-old")), old), ok())
+    add("HCS-0007-R024", "invalid", "key-set-only-new-root", "A key set signed only by a root the host does not hold.", "distribution",
+        key_set_input(key_set(signers=("root-2",))), bad("signature_invalid"))
+    both = key_set([online("online-1"), online("online-2")], threshold=2)
+    add("HCS-0007-R024", "invalid", "ignored-signature-does-not-count", "Threshold 2: online-1 and a key that is not in the key set do not make two.", "distribution",
+        verify_input(envelope(signers=("online-1", "online-9")), both), bad("signature_invalid"))
+
+    claim = {"keys": [{"keyid": "root-2", "keytype": "ed25519", "public": pub("root-2")}]}
+    ks = {"hcsVersion": "0.1", "version": 3, "keys": [online("online-1")], "x-example-trust-anchor": claim}
+    add("HCS-0007-R025", "valid", "anchor-claim-ignored", "A key set signed by the enrolled root carries an extension that names another root; the host ignores it.", "distribution",
+        key_set_input(sign(ks, distro1.KEY_SET_PAYLOAD_TYPE, "root-1")), ok())
+    add("HCS-0007-R025", "invalid", "anchor-from-document", "A key set signed only by the root that its own extension names as trust anchor.", "distribution",
+        key_set_input(sign(ks, distro1.KEY_SET_PAYLOAD_TYPE, "root-2")), bad("signature_invalid"))
 
 
 def compact(doc):

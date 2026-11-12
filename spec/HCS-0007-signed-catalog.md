@@ -76,7 +76,7 @@ A key has `keyid`, `keytype` (`ed25519`), `public` (32 bytes, base64), `notBefor
 
 These are host inputs, not published documents; the schema defines their shape so conformance cases can state them.
 
-- **Trust anchor:** the root public keys and their threshold (default 1), received at enrollment. Root keys sign key sets only.
+- **Trust anchor:** the root public keys and their threshold (default 1), received at enrollment. Root keys sign key sets only. A host changes its trust anchor only by means outside this document, never from a document it verifies (R025, section 5.3.1).
 - **Assignment:** the `binding` the host is enrolled for, received at enrollment.
 - **Accepted state:** for the last accepted envelope, its `sequence` and the sha256 digest of its canonical serialization without `signatures`; for the last accepted key set, its `version` and the same digest. Two documents have the same content when these digests are equal, whoever signed them.
 
@@ -152,6 +152,22 @@ For an envelope the order of step (1) is: readable (R003), `hcsVersion`, R004, s
 
 **[HCS-0007-R014]** A host MUST count a signature toward a threshold only when the current time is equal to or later than its key's `notBefore` and earlier than its `notAfter`.
 
+**[HCS-0007-R024]** When a host counts signatures toward the threshold of R005 or R011, it MUST ignore a signature whose `keyid` names no key of the key set or trust anchor it verifies against, a signature that does not verify, and a signature whose key is outside its validity window (R014), and MUST NOT refuse the document because it carries such a signature when the signatures it counts meet the threshold.
+
+R024 is what lets a distribution sign one key set with an old and a new root key (section 5.3.1): a host that holds only the old one counts the old signature and ignores the other. R022 and R023 still apply before any signature is counted, so a repeated `keyid` remains `manifest_invalid`. TUF counts signatures the same way: only signatures by the keys of the role, each key once ([tuf.md](../docs/standards/tuf.md)).
+
+**[HCS-0007-R025]** A host MUST NOT take its trust anchor, or any root key of it, from an envelope, a key set, an extension member or any other document it receives with them, and MUST verify every key set against the trust anchor it already holds.
+
+**[HCS-0007-R026]** A host MUST record a key set as accepted only after every check of section 5.3 has passed; a host that refuses a key set MUST keep its accepted key set and its accepted state unchanged, and MUST go on verifying envelopes against that key set.
+
+### 5.3.1 Rotating and revoking keys
+
+This section is informative; it describes how the requirements above let a distribution change keys.
+
+- **Online key rotation.** The root signs a key set with a higher `version` that adds the new key; once hosts have accepted it, envelopes can be signed with the new key, and a later version drops the old one. Overlapping validity windows (R014) avoid a gap.
+- **Revocation.** HCS has no revocation list. A key is revoked by publishing a key set with a higher `version` that does not list it; from then on its signatures do not count (R005, R024). The content digest excludes `signatures` (section 3.3), so the distribution can re-sign the current envelope with a remaining key without raising its `sequence`, and a host accepts it as equal in content (section 5.2).
+- **Root key replacement.** The trust anchor reaches a host outside this document (R025), for example at enrollment or with a host update. During the transition the distribution signs every key set with the threshold of the old and of the new trust anchor (R027), so hosts on either anchor accept it (R024). When every host it serves holds the new anchor, it publishes a key set signed by the new root only. A host still on the old anchor refuses that key set with `signature_invalid` and keeps its accepted key set (R026) until it is enrolled again. TUF reaches the same property with a chain of root documents, each signed by the threshold of the previous and of the new root ("Update the root role" in the TUF client workflow); HCS-0007 has no root document (OQ-0007-8).
+
 ### 5.4 Moving to the accepted set
 
 **[HCS-0007-R015]** A host MUST record an envelope's `sequence` and content digest as accepted only after every check of section 5.2 has passed, and MUST keep the accepted state of envelopes and key sets across restarts.
@@ -174,6 +190,12 @@ HCS-0008 section 7 refines R018 for hosts that start an agent engine: when a gen
 
 **[HCS-0007-R021]** A host that reports observed state to its distribution SHOULD send each report as a CloudEvents 1.0.2 event whose `data` is an HCS-0004 status document, and SHOULD carry errors over HTTP as RFC 9457 problem details as HCS-0006 section 4.2 defines.
 
+**[HCS-0007-R027]** A distribution that replaces a root key SHOULD sign every key set it publishes during the transition with the threshold of both the old and the new trust anchor, until every host it serves holds the new trust anchor, and its signing tool SHOULD refuse to sign a key set with fewer root signatures than the previous version unless the operator asks for it explicitly.
+
+**[HCS-0007-R028]** A distribution that learns an online key is compromised SHOULD publish a key set with a higher `version` that does not list it, and SHOULD re-sign the current envelope with a key that remains (section 5.3.1).
+
+**[HCS-0007-R029]** A host SHOULD NOT let any input that a received document, a package or the serving endpoint can set replace its trust anchor, and a host in production SHOULD NOT hold a fixture root key of the conformance cases in its trust anchor; those keys are derived from public seeds and protect nothing.
+
 Section 5.5 cannot be checked by a conformance case; it describes how a distribution keeps the guarantees of sections 5.2 and 5.3 meaningful.
 
 ## 6. Open questions
@@ -185,3 +207,6 @@ Section 5.5 cannot be checked by a conformance case; it describes how a distribu
 - OQ-0007-5: key types besides Ed25519, and post-quantum signatures.
 - OQ-0007-6: how a host recovers when every online key has expired and no newer key set is reachable (TUF fast-forward recovery has no equivalent here yet).
 - OQ-0007-7: whether a host must refuse an Ed25519 public key of small order (a key whose multiples by the cofactor are the identity). With such a key, a signature can verify for more than one message, so the signature need not bind the document to a key holder; whether that matters depends on how a deployment issues keys. HCS-0007 does not say, and the reference implementation does not refuse them; no requirement is written until a second implementation or a deployment shows which behavior hosts need.
+- OQ-0007-8: whether HCS-0007 should define a published root rotation chain, as TUF does with root documents each signed by the threshold of the previous and of the new root, so that a host reaches a new trust anchor without enrollment or a host update. Today a host that missed the overlap of R027 needs to be enrolled again.
+- OQ-0007-9: whether a host must stop running, or may keep running, the desired set of an accepted envelope that no longer verifies once a key set removes its signing key, until a re-signed envelope arrives. TUF refreshes every role on each update; HCS-0007 does not say when a host verifies an accepted envelope again.
+- OQ-0007-10: keys limited to one `binding` member, with accepted state kept per member. One harness limits each key to a tenant with an extension member and keeps its rollback state per tenant; no requirement is written until a second harness needs it (README rule 1).
