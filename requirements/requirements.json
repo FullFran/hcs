@@ -896,6 +896,90 @@
       "keyword": "MUST NOT",
       "text": "When a host cannot complete a return to the confirmed generation because it cannot change which generation is active, or because there is none to return to, it MUST NOT start an engine run from the failed generation, MUST durably record the stop, MUST stop, and MUST report as R016 requires, until a new desired set or an operator action arrives. A host that stops under R016 records the stop in the same way.",
       "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0010-R001",
+      "document": "HCS-0010",
+      "keyword": "MUST",
+      "text": "A proposal record MUST validate against the HCS-0010 `proposal` schema.",
+      "source": "spec/HCS-0010-proposals.md"
+    },
+    {
+      "id": "HCS-0010-R002",
+      "document": "HCS-0010",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT apply the change of a proposal unless its state is `accepted`.",
+      "source": "spec/HCS-0010-proposals.md"
+    },
+    {
+      "id": "HCS-0010-R003",
+      "document": "HCS-0010",
+      "keyword": "MUST",
+      "text": "A host MUST move a proposal only from `pending` to `accepted` or to `rejected`, MUST do so once, and MUST refuse any later answer to the same proposal.",
+      "source": "spec/HCS-0010-proposals.md"
+    },
+    {
+      "id": "HCS-0010-R004",
+      "document": "HCS-0010",
+      "keyword": "MUST",
+      "text": "A host MUST answer a proposal only from a person's answer taken under HCS-0005-R015 or from a grant or denial it holds under HCS-0005 section 3.2, and MUST NOT offer an agent, a tool or a package any operation that answers or undoes a proposal.",
+      "source": "spec/HCS-0010-proposals.md"
+    },
+    {
+      "id": "HCS-0010-R005",
+      "document": "HCS-0010",
+      "keyword": "MUST",
+      "text": "A host MUST write the HCS-0005 decision record of an answer before it applies the change, MUST carry its `id` in the proposal's `answer.decision`, and MUST NOT apply the change when it cannot write the record (HCS-0005-R012).",
+      "source": "spec/HCS-0010-proposals.md"
+    },
+    {
+      "id": "HCS-0010-R006",
+      "document": "HCS-0010",
+      "keyword": "MUST",
+      "text": "When a proposal carries a `base` and the target's current state no longer matches it, a host MUST refuse to apply the proposal, MUST leave the target unchanged, and MUST tell the person that the target changed.",
+      "source": "spec/HCS-0010-proposals.md"
+    },
+    {
+      "id": "HCS-0010-R007",
+      "document": "HCS-0010",
+      "keyword": "MUST",
+      "text": "A host MUST record an undo as a new proposal whose `undoes` names an accepted proposal, and MUST NOT change, remove or re-open the record of the proposal it undoes.",
+      "source": "spec/HCS-0010-proposals.md"
+    },
+    {
+      "id": "HCS-0010-R008",
+      "document": "HCS-0010",
+      "keyword": "MUST",
+      "text": "A host MUST refuse an undo of a proposal that is not `accepted`, that was already undone, or whose change was altered or relied on by a later change, and MUST leave the target unchanged.",
+      "source": "spec/HCS-0010-proposals.md"
+    },
+    {
+      "id": "HCS-0010-R009",
+      "document": "HCS-0010",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT edit or remove an answered proposal record or the link to its decision record; every later event about it, such as an undo, is a new record.",
+      "source": "spec/HCS-0010-proposals.md"
+    },
+    {
+      "id": "HCS-0010-R010",
+      "document": "HCS-0010",
+      "keyword": "MUST",
+      "text": "When a proposal arrives with the same identity as one the host already holds and the same action type, target and payload digest, the host MUST return the existing proposal and MUST NOT create another, whatever its state.",
+      "source": "spec/HCS-0010-proposals.md"
+    },
+    {
+      "id": "HCS-0010-R011",
+      "document": "HCS-0010",
+      "keyword": "MUST",
+      "text": "When a proposal arrives with the same identity as one the host already holds but a different action type, target or payload digest, the host MUST refuse it and MUST NOT change the existing proposal.",
+      "source": "spec/HCS-0010-proposals.md"
+    },
+    {
+      "id": "HCS-0010-R012",
+      "document": "HCS-0010",
+      "keyword": "MUST",
+      "text": "A host MUST decide a proposal under the HCS-0005 permission id equal to its `actionType`, so that a grant or denial for an action type covers every tool the host maps to it and no other action type.",
+      "source": "spec/HCS-0010-proposals.md"
     }
   ]
 }
