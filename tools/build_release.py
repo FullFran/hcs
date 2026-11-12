@@ -13,7 +13,7 @@ same commit and version always give the same bytes. It writes:
                                        their profiles and case counts, profiles, unprofiled requirements,
                                        cases, runner)
     SHA256SUMS                         sha256 of every other file in the tree, `sha256sum -c` format
-    spec/ schemas/ conformance/ requirements/ tools/extract_requirements.py
+    spec/ schemas/ conformance/ requirements/ skills/ tools/extract_requirements.py
   <out>/hcs-<version>.tar.gz           the same tree; fixed mtime, owner and mode, sorted members
   <out>/hcs-<version>.tar.gz.sha256    `sha256sum -c` line for the tarball
 
@@ -39,7 +39,7 @@ import tarfile
 import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-INCLUDE = ["LICENSE", "spec", "schemas", "conformance", "requirements", "tools/extract_requirements.py"]
+INCLUDE = ["LICENSE", "spec", "schemas", "conformance", "requirements", "skills", "tools/extract_requirements.py"]
 SEMVER = re.compile(r"^0\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$")
 HEADER_ROW = re.compile(r"^\| ([^|]+?) \| (.+?) \|$")
 INDEX_FORMAT = 1
