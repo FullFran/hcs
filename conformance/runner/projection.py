@@ -13,6 +13,8 @@ Input (case `input`):
   grantedSecrets:   {entry id: [input name, ...]} secrets the host grants per entry.
   hostRuntimes:     {runtimeHint: [control environment variable names]} for each runtime the host provides
                     (HCS-0008-R023); a package may not set those variables.
+  clientLimits:     optional {"client": str, "toolListBytes": int, ...} declared for the MCP client (HCS-0008-R036);
+                    an mcp-server contribution then carries "toolListBytes", the size the host measured (R037, R038).
   activationPolicy: "all-or-nothing" | "partial" (HCS-0003 step 6).
 
 Output: {"errors": [HCS-0006 errors with entry], "selected": [entry ids the host may report active]}.
@@ -146,6 +148,12 @@ def project(inp):
                 if code == "unsupported_contribution":
                     report_unsupported(eid)
                     continue
+                budget = (inp.get("clientLimits") or {}).get("toolListBytes")
+                if budget is not None:                      # R037 over the budget, R038 not measured
+                    measured = c.get("toolListBytes")
+                    if measured is None or measured > budget:
+                        report_unsupported(eid)
+                        continue
                 denied = _check_grants(eid, c["descriptor"], set(grants.get(eid, [])))
                 if denied:
                     fail("permission_denied", eid)

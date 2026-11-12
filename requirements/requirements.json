@@ -828,6 +828,34 @@
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
+      "id": "HCS-0008-R036",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "A host that applies a limit of an MCP client to a projection MUST declare it as a host-owned setting, valid against the `clientLimits` schema (`schemas/hcs-0008/client-limits/v0.1/client-limits.schema.json`, `urn:hcs:schema:hcs-0008:client-limits:0.1`): the client's name, and at least one of `instructionsPrefix` (a positive number of characters) and `toolListBytes` (a positive number of bytes). A limit that is not declared is not applied, and HCS defines no default.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R037",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "When the client's declared limits include `toolListBytes`, an adapter MUST compare it, at projection time, with the size of the `tools` array that each projected `mcp-server` contribution answers to `tools/list` (all pages, serialized as compact JSON in UTF-8), and MUST report `unsupported_contribution` for the entry of a server whose size is greater than the limit.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R038",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "When the client's declared limits include `toolListBytes` and the host supplies no measured size for a projected `mcp-server` contribution, an adapter MUST report `unsupported_contribution` for its entry, and MUST NOT assume the server fits.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R039",
+      "document": "HCS-0008",
+      "keyword": "SHOULD",
+      "text": "An MCP server's `instructions` SHOULD give, within their first `instructionsPrefix` characters, what a model needs to use the server, for the smallest `instructionsPrefix` the host declares for a client it projects to.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
       "id": "HCS-0008-R013",
       "document": "HCS-0008",
       "keyword": "MUST NOT",
