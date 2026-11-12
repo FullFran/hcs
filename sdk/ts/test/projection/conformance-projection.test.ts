@@ -38,7 +38,7 @@ function checkFilePackage(descriptor: Json, files: Set<string>, runtimes: Record
   return undefined;
 }
 
-export function referenceAdapter(kinds: string[], runtimes: Record<string, string[]>): EngineAdapter {
+export function referenceAdapter(kinds: string[], runtimes: Record<string, string[]>, toolListBytes?: number): EngineAdapter {
   return {
     kinds,
     project(c: ProjectionContribution, ctx): ContributionProjection {
@@ -52,6 +52,13 @@ export function referenceAdapter(kinds: string[], runtimes: Record<string, strin
         const descriptor = c.descriptor as Json;
         const code = checkFilePackage(descriptor, new Set((c.files as string[] | undefined) ?? []), runtimes);
         if (code) return { ok: false, code, message: `file package refused (${code})`, requirement: code === 'manifest_invalid' ? 'HCS-0008-R021' : 'HCS-0008-R023' };
+        // R037 (over the declared budget) and R038 (declared budget, no measured size), after the checks above.
+        if (toolListBytes !== undefined) {
+          const measured = c.toolListBytes;
+          if (typeof measured !== 'number' || measured > toolListBytes) {
+            return { ok: false, code: 'unsupported_contribution', message: 'tool list is over the client budget or was not measured', requirement: typeof measured === 'number' ? 'HCS-0008-R037' : 'HCS-0008-R038' };
+          }
+        }
         const secrets: SecretInput[] = serverJsonSecretInputs(readServerJson(descriptor));
         const env = Object.fromEntries(secrets.flatMap(s => { const ref = ctx.secretEnv(s.input); return ref ? [[s.input, `\${${ref}}`]] : []; }));
         return { ok: true, identity: descriptor.name, secrets, settings: [{ name: `mcp/${descriptor.name}`, effect: 'add' }],
@@ -68,7 +75,7 @@ const norm = (errors: Err[]) => errors.map(e => JSON.stringify({ ...(e.capabilit
 export function runCase(input: Json): { errors: Err[]; selected: string[] } {
   const generation = { id: input.generation.id, entries: input.generation.entries.map((e: Json) => ({ id: e.id, root: `/conformance/${input.generation.id}/entries/${e.id}`, contributions: e.contributions })) };
   const secrets: SecretRef[] = Object.entries((input.grantedSecrets ?? {}) as Record<string, string[]>).flatMap(([entry, names]) => names.map((name, i) => ({ entry, input: name, env: `HCS_SECRET_${i}` })));
-  const { report } = projectGeneration(generation, referenceAdapter(input.projectableKinds ?? [], input.hostRuntimes ?? {}), undefined,
+  const { report } = projectGeneration(generation, referenceAdapter(input.projectableKinds ?? [], input.hostRuntimes ?? {}, input.clientLimits?.toolListBytes), undefined,
     { runDir: '/conformance/run', hostOwned: input.hostOwned ?? [], secrets, activationPolicy: input.activationPolicy ?? 'all-or-nothing' });
   return { errors: report.errors, selected: report.selected };
 }
