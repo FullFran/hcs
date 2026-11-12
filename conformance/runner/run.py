@@ -124,6 +124,9 @@ def check_document(target, doc, limits=None, violation=None):
             return [err("manifest_invalid")]
     if target == ERROR + "#/$defs/problemDetails" and doc["type"] != "urn:hcs:error:" + doc["hcsError"]["code"]:
         return [err("manifest_invalid")]
+    if target == ERROR + "#/$defs/toolCallOutput" and "outputSchema" in doc:  # HCS-0006-R008
+        if not Draft202012Validator(doc["outputSchema"]).is_valid(doc["result"]["structuredContent"]):
+            return [err("manifest_invalid")]
     return []
 
 
@@ -298,6 +301,12 @@ def extract_hcs_error(inp):
     response = inp["response"]
     if schema_valid(ERROR + "#/$defs/jsonrpcErrorResponse", response):
         return response["error"]["data"]["hcsError"]
+    # an MCP tools/call response: only an isError result with a valid structuredContent.hcsError (R009)
+    result = response.get("result") if isinstance(response, dict) else None
+    if isinstance(result, dict) and result.get("isError") is True and isinstance(result.get("structuredContent"), dict):
+        hcs = result["structuredContent"].get("hcsError")
+        if schema_valid(ERROR, hcs):
+            return hcs
     return None
 
 
