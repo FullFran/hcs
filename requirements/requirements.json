@@ -896,6 +896,48 @@
       "keyword": "MUST NOT",
       "text": "When a host cannot complete a return to the confirmed generation because it cannot change which generation is active, or because there is none to return to, it MUST NOT start an engine run from the failed generation, MUST durably record the stop, MUST stop, and MUST report as R016 requires, until a new desired set or an operator action arrives. A host that stops under R016 records the stop in the same way.",
       "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0009-R001",
+      "document": "HCS-0009",
+      "keyword": "MUST",
+      "text": "If the `_meta[\"io.github.fullfran.hcs\"]` member of a `server.json` of an `mcp-server` contribution is present, it MUST validate against the `serverMeta` definition of the HCS-0009 schema, and an adapter MUST report `manifest_invalid` for an entry whose member does not.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R002",
+      "document": "HCS-0009",
+      "keyword": "SHOULD",
+      "text": "A package that contributes an `mcp-server` SHOULD declare every tool its server lists.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R003",
+      "document": "HCS-0009",
+      "keyword": "MUST",
+      "text": "A host that presents the tools of a projected MCP server to an engine, a client or a person MUST present each tool with the four annotations that the table in section 4 gives for its declaration.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R004",
+      "document": "HCS-0009",
+      "keyword": "MUST",
+      "text": "A host MUST present a tool whose declaration is missing, or whose `effect` is not `read`, `additive` or `destructive`, as `destructive` with `idempotent` false and `openWorld` true, that is `readOnlyHint` false, `destructiveHint` true, `idempotentHint` false and `openWorldHint` true.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R005",
+      "document": "HCS-0009",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT take the effect of a tool from the annotations the server reports for itself, and MUST replace them with the annotations of R003 or R004 when it presents the tool.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R006",
+      "document": "HCS-0009",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT treat a declared effect class, `read` included, as a grant, and MUST evaluate every `tools/call` of a package's server under HCS-0005-R001 as if the declaration did not exist.",
+      "source": "spec/HCS-0009-tool-surface.md"
     }
   ]
 }

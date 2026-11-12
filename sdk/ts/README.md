@@ -48,6 +48,7 @@ Older closed-schema catalog validators reject `contentId`; this draft addition d
 | `src/cli/` (the `hcs-sdk` binary, not exported from the library) | HCS-0007 (R002, R003, R004), HCS-0001 (R007, R017) | SDK extension: publisher CLI over `signing` and `buildPackage` |
 | `src/projection/` (exported as `projection`) | HCS-0008 (host adapter), host lock (SDK extension) | written from the spec and `conformance/runner/projection.py` |
 | `src/mcp-server.ts` | HCS-0008 (R010, R011) | written from the spec and `conformance/runner/projection.py` |
+| `src/tool-effects.ts` | HCS-0009 (R001, R003 to R005) | written from the spec; `annotationsFor(declared)` maps a tool's declared effect class to MCP annotations (a missing, unknown or malformed one is the most dangerous), `checkServerToolEffects(serverJson)` is R001, `classifyTools(serverJson, listedTools)` classifies what `tools/list` returned and never reads the server's own annotations |
 
 ## Publisher CLI
 
