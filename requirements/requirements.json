@@ -488,7 +488,28 @@
       "id": "HCS-0006-R006",
       "document": "HCS-0006",
       "keyword": "MUST",
-      "text": "A client MUST take an HCS error only from `error.data.hcsError` of a JSON-RPC 2.0 error response or from the `hcsError` member of an RFC 9457 problem details object, and MUST NOT derive an HCS code from any other member (for example a top-level `code`, `reason` or `title`). A response whose `hcsError` is missing or fails the HCS-0006 schema, or a problem whose `type` does not equal `urn:hcs:error:<hcsError.code>`, carries no HCS error. Other members of a problem with the wrong type (for example a string `status`) are ignored, as RFC 9457 section 3.1 says, and do not affect the HCS error.",
+      "text": "A client MUST take an HCS error only from `error.data.hcsError` of a JSON-RPC 2.0 error response, from the `hcsError` member of an RFC 9457 problem details object, or from an MCP tool result as R009 says, and MUST NOT derive an HCS code from any other member (for example a top-level `code`, `reason` or `title`). A response whose `hcsError` is missing or fails the HCS-0006 schema, or a problem whose `type` does not equal `urn:hcs:error:<hcsError.code>`, carries no HCS error. Other members of a problem with the wrong type (for example a string `status`) are ignored, as RFC 9457 section 3.1 says, and do not affect the HCS error.",
+      "source": "spec/HCS-0006-errors.md"
+    },
+    {
+      "id": "HCS-0006-R007",
+      "document": "HCS-0006",
+      "keyword": "MUST",
+      "text": "When an HCS error is carried in the result of an MCP `tools/call`, the result MUST have `isError` equal to `true`, MUST carry the HCS error object as the value of `structuredContent.hcsError`, and MUST have at least one `text` item in `content`.",
+      "source": "spec/HCS-0006-errors.md"
+    },
+    {
+      "id": "HCS-0006-R008",
+      "document": "HCS-0006",
+      "keyword": "MUST",
+      "text": "When a tool declares an `outputSchema`, the `structuredContent` of an HCS error result for that tool MUST validate against it.",
+      "source": "spec/HCS-0006-errors.md"
+    },
+    {
+      "id": "HCS-0006-R009",
+      "document": "HCS-0006",
+      "keyword": "MUST",
+      "text": "A client MUST take an HCS error from an MCP tool result only when `isError` is `true` and `structuredContent.hcsError` validates against the HCS-0006 error schema, and MUST NOT take one from `content` text, from a result whose `isError` is not `true`, or from any other member of `structuredContent`.",
       "source": "spec/HCS-0006-errors.md"
     },
     {
@@ -828,6 +849,34 @@
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
+      "id": "HCS-0008-R036",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "A host that applies a limit of an MCP client to a projection MUST declare it as a host-owned setting, valid against the `clientLimits` schema (`schemas/hcs-0008/client-limits/v0.1/client-limits.schema.json`, `urn:hcs:schema:hcs-0008:client-limits:0.1`): the client's name, and at least one of `instructionsPrefix` (a positive number of characters) and `toolListBytes` (a positive number of bytes). A limit that is not declared is not applied, and HCS defines no default.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R037",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "When the client's declared limits include `toolListBytes`, an adapter MUST compare it, at projection time, with the size of the `tools` array that each projected `mcp-server` contribution answers to `tools/list` (all pages, serialized as compact JSON in UTF-8), and MUST report `unsupported_contribution` for the entry of a server whose size is greater than the limit.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R038",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "When the client's declared limits include `toolListBytes` and the host supplies no measured size for a projected `mcp-server` contribution, an adapter MUST report `unsupported_contribution` for its entry, and MUST NOT assume the server fits.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0008-R039",
+      "document": "HCS-0008",
+      "keyword": "SHOULD",
+      "text": "An MCP server's `instructions` SHOULD give, within their first `instructionsPrefix` characters, what a model needs to use the server, for the smallest `instructionsPrefix` the host declares for a client it projects to.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
       "id": "HCS-0008-R013",
       "document": "HCS-0008",
       "keyword": "MUST NOT",
@@ -896,6 +945,48 @@
       "keyword": "MUST NOT",
       "text": "When a host cannot complete a return to the confirmed generation because it cannot change which generation is active, or because there is none to return to, it MUST NOT start an engine run from the failed generation, MUST durably record the stop, MUST stop, and MUST report as R016 requires, until a new desired set or an operator action arrives. A host that stops under R016 records the stop in the same way.",
       "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
+      "id": "HCS-0009-R001",
+      "document": "HCS-0009",
+      "keyword": "MUST",
+      "text": "If the `_meta[\"io.github.fullfran.hcs\"]` member of a `server.json` of an `mcp-server` contribution is present, it MUST validate against the `serverMeta` definition of the HCS-0009 schema, and an adapter MUST report `manifest_invalid` for an entry whose member does not.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R002",
+      "document": "HCS-0009",
+      "keyword": "SHOULD",
+      "text": "A package that contributes an `mcp-server` SHOULD declare every tool its server lists.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R003",
+      "document": "HCS-0009",
+      "keyword": "MUST",
+      "text": "A host that presents the tools of a projected MCP server to an engine, a client or a person MUST present each tool with the four annotations that the table in section 4 gives for its declaration.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R004",
+      "document": "HCS-0009",
+      "keyword": "MUST",
+      "text": "A host MUST present a tool whose declaration is missing, or whose `effect` is not `read`, `additive` or `destructive`, as `destructive` with `idempotent` false and `openWorld` true, that is `readOnlyHint` false, `destructiveHint` true, `idempotentHint` false and `openWorldHint` true.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R005",
+      "document": "HCS-0009",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT take the effect of a tool from the annotations the server reports for itself, and MUST replace them with the annotations of R003 or R004 when it presents the tool.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R006",
+      "document": "HCS-0009",
+      "keyword": "MUST NOT",
+      "text": "A host MUST NOT treat a declared effect class, `read` included, as a grant, and MUST evaluate every `tools/call` of a package's server under HCS-0005-R001 as if the declaration did not exist.",
+      "source": "spec/HCS-0009-tool-surface.md"
     },
     {
       "id": "HCS-0010-R001",

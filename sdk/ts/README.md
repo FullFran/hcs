@@ -43,12 +43,14 @@ Older closed-schema catalog validators reject `contentId`; this draft addition d
 | `src/proposals.ts` | HCS-0010 | written from the spec; behaviour studied in RE;write and training-mcp, no code copied |
 | `src/host-state.ts` | HCS-0003, HCS-0004, HCS-0005 | RE;write 7e9e903 `src/hcs/host-state.ts` |
 | `src/transport.ts` | HCS-0006 | RE;write 7e9e903 `src/hcs/transport.ts` |
+| `src/errors.ts` (`toToolResult`, `fromToolResult`, `withHcsErrorOutput`) | HCS-0006 (R007 to R009, MCP tool results) | written from the spec: `toToolResult(error, text?)` builds the `isError` result with the error in `structuredContent.hcsError` and a text item (the message by default); `fromToolResult(result)` returns the HCS error or `null`; `withHcsErrorOutput(schema)` wraps an `outputSchema` in `anyOf` with an alternative that requires `hcsError` and leaves its input unmodified |
 | `src/host.ts` | HCS-0003 (host profile) | RE;write 7e9e903 `src/hcs/host.ts` |
 | `src/signing/` (exported as `signing`) | HCS-0007 (DISTRO-1) | written from the spec and `conformance/runner/distro1.py` |
 | `src/signing/keys.ts` (`signing.isPrivateKeyMaterial`, `seedToPem`, `readSignerPem`) | HCS-0007 (R019, key handling) | SDK extension: PKCS#8 PEM key files and a private-key guard |
 | `src/cli/` (the `hcs-sdk` binary, not exported from the library) | HCS-0007 (R002, R003, R004), HCS-0001 (R007, R017) | SDK extension: publisher CLI over `signing` and `buildPackage` |
 | `src/projection/` (exported as `projection`) | HCS-0008 (host adapter), host lock (SDK extension) | written from the spec and `conformance/runner/projection.py` |
 | `src/mcp-server.ts` | HCS-0008 (R010, R011) | written from the spec and `conformance/runner/projection.py` |
+| `src/tool-effects.ts` | HCS-0009 (R001, R003 to R005) | written from the spec; `annotationsFor(declared)` maps a tool's declared effect class to MCP annotations (a missing, unknown or malformed one is the most dangerous), `checkServerToolEffects(serverJson)` is R001, `classifyTools(serverJson, listedTools)` classifies what `tools/list` returned and never reads the server's own annotations |
 
 ## Publisher CLI
 

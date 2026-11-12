@@ -63,6 +63,37 @@
         }
       }
     },
+    "toolResultError": {
+      "description": "MCP CallToolResult carrying an HCS error (HCS-0006-R007): isError true, the error in structuredContent.hcsError, at least one text item in content. Other members of structuredContent are free.",
+      "type": "object",
+      "required": ["content", "isError", "structuredContent"],
+      "properties": {
+        "content": {
+          "type": "array",
+          "contains": {
+            "type": "object",
+            "required": ["type", "text"],
+            "properties": { "type": { "const": "text" }, "text": { "type": "string" } }
+          }
+        },
+        "isError": { "const": true },
+        "structuredContent": {
+          "type": "object",
+          "required": ["hcsError"],
+          "properties": { "hcsError": { "$ref": "#" } }
+        }
+      }
+    },
+    "toolCallOutput": {
+      "description": "A tool's declared outputSchema (when it has one) and one of its HCS error results (HCS-0006-R008). That result.structuredContent validates against outputSchema is checked by the runner.",
+      "type": "object",
+      "required": ["result"],
+      "properties": {
+        "outputSchema": { "type": "object" },
+        "result": { "$ref": "#/$defs/toolResultError" }
+      },
+      "additionalProperties": false
+    },
     "problemDetails": {
       "description": "RFC 9457 problem details object carrying an HCS error (HCS-0006-R004, R005). type/code equality is checked by the runner.",
       "type": "object",

@@ -85,7 +85,7 @@ The numeric `error.code` is whatever the carrying protocol prescribes for the si
 
 A client that reads the wrong member gets the wrong answer and can still pass its own tests: the first host's server put the HCS error in an extension member, its client read a top-level `reason`, and the client's unit test passed because it used a hand-written fake with the same wrong shape. Every enrolled machine would have reported "nothing published yet" as a sync failure; only an end-to-end run against the real server caught it.
 
-**[HCS-0006-R006]** A client MUST take an HCS error only from `error.data.hcsError` of a JSON-RPC 2.0 error response or from the `hcsError` member of an RFC 9457 problem details object, and MUST NOT derive an HCS code from any other member (for example a top-level `code`, `reason` or `title`). A response whose `hcsError` is missing or fails the HCS-0006 schema, or a problem whose `type` does not equal `urn:hcs:error:<hcsError.code>`, carries no HCS error. Other members of a problem with the wrong type (for example a string `status`) are ignored, as RFC 9457 section 3.1 says, and do not affect the HCS error.
+**[HCS-0006-R006]** A client MUST take an HCS error only from `error.data.hcsError` of a JSON-RPC 2.0 error response, from the `hcsError` member of an RFC 9457 problem details object, or from an MCP tool result as R009 says, and MUST NOT derive an HCS code from any other member (for example a top-level `code`, `reason` or `title`). A response whose `hcsError` is missing or fails the HCS-0006 schema, or a problem whose `type` does not equal `urn:hcs:error:<hcsError.code>`, carries no HCS error. Other members of a problem with the wrong type (for example a string `status`) are ignored, as RFC 9457 section 3.1 says, and do not affect the HCS error.
 
 `client` cases give the response a client receives and the HCS error it must extract, or `null` when there is none. A client's tests should build their fake server responses from these fixtures (or from responses recorded from the real server), never from hand-written objects, so the fake cannot share the client's mistake.
 
@@ -101,9 +101,44 @@ This section is informative. A distribution can ship before the registry has a c
 
 New distributions do not need this: they report a registry code, or no HCS error.
 
+### 4.5 MCP tool results
+
+Over MCP a failure reaches the caller in one of two ways ([docs/standards/mcp.md](../docs/standards/mcp.md); MCP 2026-07-28, Tools, Error Handling). A protocol error is a JSON-RPC error for a problem with the request itself that a model is unlikely to fix (an unknown tool, a malformed request, a server failure); section 4.1 carries an HCS error there. A tool execution error is a `CallToolResult` with `isError: true` for actionable feedback a model can use to retry (an API failure, invalid input, a business-rule refusal), which MCP asks clients to show to the model. A host that reports an HCS error for a failure of the tool's own execution, such as `permission_denied` for a call the person has not allowed, uses the second way, because a JSON-RPC error hides the failure from the model. A failure of the request or of the host itself, such as `unsupported_capability` for a call to a tool that is not active, stays a JSON-RPC error. One failure is reported one way, never both. A host that reports every HCS error as a JSON-RPC error still conforms to R003 ([ADR-0035](../docs/adr/0035-hcs-errors-in-mcp-tool-results.md)).
+
+```json
+{
+  "content": [{ "type": "text", "text": "dev.example.notes has no grant for dev.example.fs.write" }],
+  "isError": true,
+  "structuredContent": {
+    "hcsError": {
+      "code": "permission_denied",
+      "message": "dev.example.notes has no grant for dev.example.fs.write",
+      "entry": "dev.example.notes"
+    }
+  }
+}
+```
+
+**[HCS-0006-R007]** When an HCS error is carried in the result of an MCP `tools/call`, the result MUST have `isError` equal to `true`, MUST carry the HCS error object as the value of `structuredContent.hcsError`, and MUST have at least one `text` item in `content`.
+
+The text item is for the model and the person. It SHOULD contain the `message` and MAY add guidance, such as the next tool to call; clients never read it for the code (R009). MCP asks a tool that returns structured content to also serialize it as text; the text item satisfies that.
+
+`structuredContent` is a JSON object whose members other than `hcsError` belong to the host or the tool. A tool that also reports a condition no HCS document defines (section 3, last paragraph) puts it in those other members, for example an RFC 9457 problem object, and never as an `x-` value in `code`.
+
+MCP says a server MUST provide structured results that conform to a tool's `outputSchema`, and says nothing that exempts error results. So a tool that declares an `outputSchema` and can report an HCS error as a result has to declare one that accepts it.
+
+**[HCS-0006-R008]** When a tool declares an `outputSchema`, the `structuredContent` of an HCS error result for that tool MUST validate against it.
+
+A schema that lists required result members rejects `{ "hcsError": ... }`. The usual remedy is to wrap the schema in `anyOf` with an alternative that requires `hcsError`; the SDK's `withHcsErrorOutput` does that (`sdk/ts/README.md`). A client that validates results can then keep doing so without special cases for errors.
+
+**[HCS-0006-R009]** A client MUST take an HCS error from an MCP tool result only when `isError` is `true` and `structuredContent.hcsError` validates against the HCS-0006 error schema, and MUST NOT take one from `content` text, from a result whose `isError` is not `true`, or from any other member of `structuredContent`.
+
+A result that fails R009 carries no HCS error; the client handles it as an ordinary tool failure. The `client` cases give the `tools/call` response a client receives in `input.response`, whose `result` member is the tool result.
+
 ## 5. Open questions
 
 - OQ-0006-1: whether errors need a stable machine-readable `retryable` hint (`timeout` usually is, `integrity_mismatch` is not). No consumer needs it yet.
 - OQ-0006-2: whether one failure may carry several errors (a resolution pass usually finds several). The reference runner returns a list; the wire shape for a list is not defined.
 - OQ-0006-3: mapping to OpenTelemetry `error.type` (the GenAI conventions are Development status; see [docs/standards/opentelemetry-genai.md](../docs/standards/opentelemetry-genai.md)).
+- OQ-0006-5: an optional agent-recovery hint for tool results (the next tool to call after a refusal). One consumer puts it in a `next_step` member of its own problem object and repeats it in the text. It names tools of that product, a model is steered by text it already reads, and no second consumer carries a hint, so HCS defines no member. A distribution can put it in the text item (R007) or in `details` under an extension member (`x-<distribution>-next-step`).
 - OQ-0006-4: a stable sub-reason for `signature_invalid` (unsigned, bad signature, threshold not met, expired) so operators can tell them apart without parsing `message`. The first host distinguishes them; HCS-0006 has no member for it yet.
