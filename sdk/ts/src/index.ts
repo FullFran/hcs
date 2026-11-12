@@ -17,5 +17,6 @@ export * from './host-state.ts';
 export * from './transport.ts';
 export * from './host.ts';
 export * from './mcp-server.ts';
+export * from './tool-effects.ts';
 export * as signing from './signing/index.ts';
 export * as projection from './projection/index.ts';
