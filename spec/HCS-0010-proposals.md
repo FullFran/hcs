@@ -96,7 +96,7 @@ An action type is therefore not a new kind of object: the check, the grant, the 
 
 ## 4. Open questions
 
-- OQ-0010-1: the HCS-0006 code for a refusal under R003, R006, R008 or R011. No existing code fits; `proposal_conflict` is proposed for HCS-0006. Until it exists, a host reports the refusal outside the HCS error object.
+- OQ-0010-1: closed. A host that reports a refusal under R003, R006, R008 or R011 as an HCS error uses the HCS-0006 code `proposal_conflict`, with `requirement` set to the HCS-0010 requirement it applies. Both consumers already refuse these cases with a distinct error of their own.
 - OQ-0010-2: intermediate states. training-mcp keeps `applying` (the change is being written) and `failed` (applying raised an error); RE;write has neither. Both are about applying, not about who answered, so they stay out of the three states.
 - OQ-0010-3: whether a shared identity mechanism is worth fixing for interop. A content hash needs a canonical form of the change; a client key needs the client to supply and keep one.
 - OQ-0010-4: the `entry` for a proposal made through a host built-in tool. HCS-0005 grants are keyed by entry; training-mcp's stored answers are keyed by action type and session alone.

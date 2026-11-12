@@ -4,7 +4,7 @@ import { HCS_ERROR_CODES, hcsError } from '../src/errors.ts';
 import { HCS_ERROR_STATUS, toJsonRpcError, toProblemDetails, validateHcsError } from '../src/transport.ts';
 
 test('HCS-0006 transports preserve all codes and schema-valid errors', () => {
-  const statuses = [422, 422, 422, 422, 422, 422, 422, 409, 422, 409, 409, 403, 404, 504, 502, 422, 409, 409];
+  const statuses = [422, 422, 422, 422, 422, 409, 422, 422, 409, 422, 409, 409, 403, 404, 504, 502, 422, 409, 409];
   HCS_ERROR_CODES.forEach((code, index) => {
     const error = hcsError(code, 'Failure', { entry: 'com.example.entry', capability: 'com.example.cap@1', requirement: 'HCS-0001-R001', details: { 'x-example': 1 } });
     const rpc = toJsonRpcError(error, 7);

@@ -7,6 +7,7 @@ export const HCS_ERROR_CODES = [
   'duplicate_entry',
   'integrity_mismatch',
   'package_invalid',
+  'proposal_conflict',
   'unsupported_contribution',
   'platform_incompatible',
   'missing_dependency',
