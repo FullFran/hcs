@@ -488,7 +488,28 @@
       "id": "HCS-0006-R006",
       "document": "HCS-0006",
       "keyword": "MUST",
-      "text": "A client MUST take an HCS error only from `error.data.hcsError` of a JSON-RPC 2.0 error response or from the `hcsError` member of an RFC 9457 problem details object, and MUST NOT derive an HCS code from any other member (for example a top-level `code`, `reason` or `title`). A response whose `hcsError` is missing or fails the HCS-0006 schema, or a problem whose `type` does not equal `urn:hcs:error:<hcsError.code>`, carries no HCS error. Other members of a problem with the wrong type (for example a string `status`) are ignored, as RFC 9457 section 3.1 says, and do not affect the HCS error.",
+      "text": "A client MUST take an HCS error only from `error.data.hcsError` of a JSON-RPC 2.0 error response, from the `hcsError` member of an RFC 9457 problem details object, or from an MCP tool result as R009 says, and MUST NOT derive an HCS code from any other member (for example a top-level `code`, `reason` or `title`). A response whose `hcsError` is missing or fails the HCS-0006 schema, or a problem whose `type` does not equal `urn:hcs:error:<hcsError.code>`, carries no HCS error. Other members of a problem with the wrong type (for example a string `status`) are ignored, as RFC 9457 section 3.1 says, and do not affect the HCS error.",
+      "source": "spec/HCS-0006-errors.md"
+    },
+    {
+      "id": "HCS-0006-R007",
+      "document": "HCS-0006",
+      "keyword": "MUST",
+      "text": "When an HCS error is carried in the result of an MCP `tools/call`, the result MUST have `isError` equal to `true`, MUST carry the HCS error object as the value of `structuredContent.hcsError`, and MUST have at least one `text` item in `content`.",
+      "source": "spec/HCS-0006-errors.md"
+    },
+    {
+      "id": "HCS-0006-R008",
+      "document": "HCS-0006",
+      "keyword": "MUST",
+      "text": "When a tool declares an `outputSchema`, the `structuredContent` of an HCS error result for that tool MUST validate against it.",
+      "source": "spec/HCS-0006-errors.md"
+    },
+    {
+      "id": "HCS-0006-R009",
+      "document": "HCS-0006",
+      "keyword": "MUST",
+      "text": "A client MUST take an HCS error from an MCP tool result only when `isError` is `true` and `structuredContent.hcsError` validates against the HCS-0006 error schema, and MUST NOT take one from `content` text, from a result whose `isError` is not `true`, or from any other member of `structuredContent`.",
       "source": "spec/HCS-0006-errors.md"
     },
     {

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HCS_ERROR_CODES, HcsFailure, hcsError, isHcsErrorCode } from '../src/errors.ts';
+import { HCS_ERROR_CODES, HcsFailure, fromToolResult, hcsError, isHcsErrorCode, toToolResult, withHcsErrorOutput } from '../src/errors.ts';
+import { toJsonRpcError } from '../src/transport.ts';
 
 test('HCS-0006-R002 error codes form a closed set', () => {
   assert.equal(HCS_ERROR_CODES.length, 18);

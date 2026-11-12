@@ -4,14 +4,14 @@ Cases are data (`case.schema.json`), one file per case, in `cases/<document>/<re
 
 | Level | Executed by the reference runner | What it checks |
 | --- | --- | --- |
-| `document` | yes | a JSON document (`input`, or its exact bytes in `documentBase64`) against an HCS schema (`target`), plus semantic checks: `hcsVersion` first, duplicate entry ids, problem-details `type`/code equality |
+| `document` | yes | a JSON document (`input`, or its exact bytes in `documentBase64`) against an HCS schema (`target`), plus semantic checks: `hcsVersion` first, duplicate entry ids, problem-details `type`/code equality, and that an error tool result's `structuredContent` validates against the tool's `outputSchema` (HCS-0006-R008, target `toolCallOutput`) |
 | `integrity` | yes | `size` and `contentHash` against base64 bytes, then optional `contentId` against the bounded uncompressed tar stream (HCS-0001-R007/R018) |
 | `resolution` | yes | the HCS-0003 algorithm: activation order and typed errors |
 | `authority` | yes | the HCS-0005 evaluation: grants, stored denials (a matching denial wins) and session limits |
 | `distribution` | yes | HCS-0007: signature input, key set and envelope verification with fixture keys and a stated clock |
 | `projection` | yes | HCS-0008: the reference projection of a generation (`runner/projection.py`): errors per entry and the entries the host may report active |
 | `recovery` | yes | HCS-0008 section 7.1: the reference decision after a restart (`runner/recovery.py`): from the persisted facts, the action (`start`, `health-check`, `discard-pending`, `return`, `stop-and-report`) and the generations a cleanup retains |
-| `client` | yes | HCS-0006-R006: the HCS error a client extracts from a JSON-RPC response (`input.response`) or an RFC 9457 problem (`input.problem`); `expect.hcsError` is the error or `null`. Client test suites can run the same fixtures against their own parser |
+| `client` | yes | HCS-0006-R006, R009: the HCS error a client extracts from a JSON-RPC response (`input.response`, an error response or a `tools/call` response with a `result`) or an RFC 9457 problem (`input.problem`); `expect.hcsError` is the error or `null`. Client test suites can run the same fixtures against their own parser |
 | `host` | no, reported `pending` | a scenario and expected behaviour that needs a running host |
 
 ## Run
@@ -151,6 +151,10 @@ The summary prints one count per outcome, and `-v` lists every case. The exit co
 ### Reporting what a host does not implement
 
 Answer `{"protocolVersion": "0.1", "status": "not-implemented", "reason": "..."}` for any case the system cannot evaluate, such as a level it has not built. Do not guess an `observed` result and do not exit non-zero: the first can pass by accident or fail for the wrong reason, the second is reported as a crash. Use `not-applicable` when the case is outside what this system claims to do. `conformance/examples/minimal-sut.mjs` implements the `authority` level and answers `not-implemented` for the others.
+
+### Consumer kit
+
+[`tools/consumer-kit/`](../tools/consumer-kit/README.md) is optional, non-normative tooling for a harness that vendors a release: it verifies the tarball against `SHA256SUMS`, records a baseline of this runner's `--report` output plus a `divergences.json` (with `notApplicable`), and fails only on regression. See also [docs/adoption.md](../docs/adoption.md).
 
 ## Profiles
 
