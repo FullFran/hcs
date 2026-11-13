@@ -1,7 +1,7 @@
 // Materializes a launch plan into a new run directory, and builds the run's environment at launch.
-import { mkdirSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync, chmodSync } from 'node:fs';
+import { mkdirSync, readdirSync, renameSync, rmdirSync, rmSync, statSync, symlinkSync, writeFileSync, chmodSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import type { LaunchPlan, SecretRef } from './types.ts';
 
 // Writes the plan's files under `dir`, which must be the plan's run directory and must not exist or be empty:
@@ -18,19 +18,28 @@ export function writeRunDir(plan: LaunchPlan, dir: string): void {
   try {
     for (const file of plan.files) {
       const path = join(staging, file.path);
-      if (!path.startsWith(`${staging}/`)) throw new Error(`Plan file outside the run directory: ${file.path}`);
+      if (!path.startsWith(`${staging}${sep}`)) throw new Error(`Plan file outside the run directory: ${file.path}`);
       mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-      if ('link' in file) symlinkSync(file.link, path);
+      if ('link' in file) symlinkSync(file.link, path, linkType(file.link));
       else {
         writeFileSync(path, file.content, { flag: 'wx', mode: file.mode ?? 0o600 });
         if (file.mode !== undefined) chmodSync(path, file.mode);
       }
     }
-    renameSync(staging, target); // replaces an empty directory, refuses a non-empty one
+    // POSIX rename replaces an empty directory and refuses a non-empty one. Windows refuses both, so the empty
+    // directory is removed first; rmdir refuses a directory that is no longer empty.
+    if (existing !== undefined && process.platform === 'win32') rmdirSync(target);
+    renameSync(staging, target);
   } catch (error) {
     rmSync(staging, { recursive: true, force: true });
     throw error;
   }
+}
+
+// On Windows a directory is linked as a junction, which needs no privilege; elsewhere the type is ignored.
+function linkType(target: string): 'junction' | undefined {
+  if (process.platform !== 'win32') return undefined;
+  try { return statSync(target).isDirectory() ? 'junction' : undefined; } catch { return undefined; }
 }
 
 // The complete environment of the run: the plan's environment plus each granted secret, looked up by the host

@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { launchEnv, projectGeneration, type ProjectedContribution } from '../../src/projection/index.ts';
-import { entry, fakeAdapter, generation, POLICY, RUN, SERVER, skill, UNKNOWN } from './fake-adapter.ts';
+import { join, resolve, sep } from 'node:path';
+import { entry, fakeAdapter, GEN, generation, POLICY, RUN, SERVER, skill, UNKNOWN } from './fake-adapter.ts';
 
 const codes = (errors: { code: string; entry?: string }[]) => errors.map(e => `${e.code} ${e.entry}`).sort();
 
@@ -13,9 +14,9 @@ test('projects every contribution into one plan for the run (R003)', () => {
   assert.deepEqual(report.contributions.map(c => `${c.entry} ${c.index} ${c.status}`), ['dev.example.notes 0 projected', 'dev.example.search 0 projected']);
   assert.equal(plan.generation, 'gen-7');
   assert.equal(plan.runDir, RUN);
-  assert.deepEqual(plan.argv, ['--skill', `${RUN}/skills/notes`]);
+  assert.deepEqual(plan.argv, ['--skill', join(RUN, 'skills', 'notes')]);
   assert.deepEqual(plan.files.map(f => f.path), ['skills/notes', 'servers/search.json']);
-  assert.deepEqual(plan.files[0], { path: 'skills/notes', link: '/hcs/generations/7/entries/dev.example.notes/skills/notes' });
+  assert.deepEqual(plan.files[0], { path: 'skills/notes', link: join(GEN, 'entries', 'dev.example.notes', 'skills', 'notes') });
 });
 
 test('a kind the adapter cannot project is reported unsupported_contribution and does not fail the switch (R004, R005, R017)', () => {
@@ -105,11 +106,11 @@ test('a required secret the host did not grant to that entry is permission_denie
 test('assemble runs once over the contributions of the selected entries only', () => {
   const assembled: ProjectedContribution[][] = [];
   const gen = generation(entry('dev.example.notes', skill('notes')), entry('dev.example.guard', { kind: UNKNOWN, path: 'p' }));
-  const { plan } = projectGeneration(gen, fakeAdapter({ assembled, assemble: { files: [{ path: 'engine.json', content: '{}' }], argv: ['--config', `${RUN}/engine.json`] } }), undefined, { runDir: RUN });
+  const { plan } = projectGeneration(gen, fakeAdapter({ assembled, assemble: { files: [{ path: 'engine.json', content: '{}' }], argv: ['--config', join(RUN, 'engine.json')] } }), undefined, { runDir: RUN });
   assert.equal(assembled.length, 1);
   assert.deepEqual(assembled[0].map(p => p.entry), ['dev.example.notes']);
   assert.deepEqual(plan.files.map(f => f.path), ['skills/notes', 'engine.json']);
-  assert.deepEqual(plan.argv, ['--skill', `${RUN}/skills/notes`, '--config', `${RUN}/engine.json`]);
+  assert.deepEqual(plan.argv, ['--skill', join(RUN, 'skills', 'notes'), '--config', join(RUN, 'engine.json')]);
 });
 
 test('the plan is complete and self-contained: files stay in the run directory, links point into the generation (R001, R025)', () => {
@@ -117,9 +118,9 @@ test('the plan is complete and self-contained: files stay in the run directory, 
   for (const fragment of [
     { files: [{ path: '../outside.json', content: '{}' }] },
     { files: [{ path: '/etc/engine.json', content: '{}' }] },
-    { files: [{ path: 'skills/x', link: '/home/someone/.config/engine/skills/x' }] },
-    { files: [{ path: 'skills/x', link: '/hcs/generations/active/entries/dev.example.p/skills/x' }] },
-    { files: [{ path: 'skills/x', link: '/hcs/generations/7/entries/dev.example.p/../../../8/x' }] },
+    { files: [{ path: 'skills/x', link: join(resolve('/home/someone'), '.config', 'engine', 'skills', 'x') }] },
+    { files: [{ path: 'skills/x', link: join(resolve('/hcs/generations/active'), 'entries', 'dev.example.p', 'skills', 'x') }] },
+    { files: [{ path: 'skills/x', link: [join(GEN, 'entries', 'dev.example.p'), '..', '..', '..', '8', 'x'].join(sep) }] },
   ]) assert.throws(() => projectGeneration(bad(fragment), fakeAdapter(), undefined, { runDir: RUN }), TypeError, JSON.stringify(fragment));
   assert.throws(() => projectGeneration(generation(), fakeAdapter(), undefined, { runDir: 'relative/run' }), TypeError);
 });

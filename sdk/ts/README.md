@@ -71,6 +71,7 @@ hcs-sdk pack         <dir> --out <package.tar.gz> [--force]
 - `pack` runs `buildPackage` on a directory, writes the `.tar.gz` and prints `{"contentHash","size","contentId","mediaType"}`. Symlinks are refused.
 - No command overwrites an existing `--out` without `--force`. Output is written to a temporary name and moved into place.
 - A key file readable by group or others (`mode & 0o077`) is refused with a `chmod 600` hint. Error messages never include file contents.
+- On Windows there are no POSIX modes, so `keygen`, `sign-keys` and `sign-catalog` do not check the key file's permissions: they print `warning: file permissions are not checked on Windows; <file> is protected only by the ACL of its directory` and go on. Keep root keys in a directory only you can read.
 - Exit codes: `0` success, `1` operational error (HCS failures print `code: message` per error), `2` usage error. Machine output on stdout is canonical JSON (RFC 8785); signed documents are written as indented JSON, since the signature covers the canonical form, not the file bytes.
 
 Worked example:
@@ -130,3 +131,11 @@ HCS has no schema for host-owned settings (HCS-0008 OQ-0008-2), so the host lock
 | `env`, `argv` | host-owned environment and arguments placed first in every plan; a contribution that sets a host-owned variable is refused. Host-owned components such as hooks or guards belong here or in the adapter, not in catalog content |
 
 `projection.validateHostLock(value)` lists problems, `projection.readHostLock(text)` parses and validates, and `projection.lockWidenings(previous, next)` lists every way a replacement lock is looser (released names, wider allow-lists or ceilings, more secrets); a host keeps its lock tighten-only by refusing a replacement with any widening.
+
+## Windows
+
+The SDK runs on Windows, Linux and macOS (CI runs the whole suite on the three). What differs on Windows:
+
+- **Key files**: the CLI does not check permissions and warns instead (see the CLI section); the protection is the directory's ACL.
+- **Projection paths**: entry roots, link targets and the run directory are absolute, normalized paths of the host's platform (`D:\hcs\generations\7\...` on Windows). Paths inside the run directory (`PlanFile.path`) always use `/`. `writeRunDir` links a directory as a junction, which needs no privilege.
+- **File modes**: Windows has no execute bit. `buildPackage` records every file as `0644` there, so a package built on Windows has no executable files; build packages with scripts on Linux or macOS. `unpackPackage` seals files and directories read-only.

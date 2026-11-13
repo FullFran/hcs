@@ -17,9 +17,11 @@ beforeEach(() => { dir = join(root, `t${n++}`); mkdirSync(dir, { mode: 0o700 });
 
 const NOW = new Date('2026-11-06T12:00:00Z');
 const transcript: string[] = [];
-async function run(...args: string[]) {
+const WINDOWS = process.platform === 'win32';
+async function run(...args: string[]) { return runOn(undefined, ...args); }
+async function runOn(platform: NodeJS.Platform | undefined, ...args: string[]) {
   let out = '', err = '';
-  const io: CliIo = { stdout: t => { out += t; }, stderr: t => { err += t; }, cwd: dir, now: () => NOW };
+  const io: CliIo = { stdout: t => { out += t; }, stderr: t => { err += t; }, cwd: dir, now: () => NOW, ...(platform ? { platform } : {}) };
   const code = await runCli(args, io);
   transcript.push(out, err);
   return { code, out, err };
@@ -47,7 +49,7 @@ async function publishKeys() {
 test('keygen writes a 0600 PEM, prints only the public record and refuses to overwrite', async () => {
   const r = await run('keygen', '--keyid', 'root-1', '--out', 'root.pem');
   assert.equal(r.code, 0);
-  assert.equal(mode(p('root.pem')), 0o600);
+  if (!WINDOWS) assert.equal(mode(p('root.pem')), 0o600); // Windows has no POSIX modes
   const printed = JSON.parse(r.out);
   assert.deepEqual(Object.keys(printed).sort(), ['keyid', 'keytype', 'public']);
   assert.equal(printed.keyid, 'root-1'); assert.equal(printed.keytype, 'ed25519');
@@ -66,7 +68,7 @@ test('keygen --force replaces the file with a new 0600 key', async () => {
   const r = await run('keygen', '--keyid', 'root-1', '--out', 'root.pem', '--force');
   assert.equal(r.code, 0);
   assert.notEqual(readFileSync(p('root.pem'), 'utf8'), before);
-  assert.equal(mode(p('root.pem')), 0o600);
+  if (!WINDOWS) assert.equal(mode(p('root.pem')), 0o600); // Windows has no POSIX modes
   assert.deepEqual(readdirSync(dir), ['root.pem']);
 });
 
@@ -173,11 +175,23 @@ test('a file that is not JSON is reported without echoing its contents', async (
 
 test('a private key file readable by group or others is refused', async () => {
   await publishKeys();
-  chmodSync(p('root.pem'), 0o644);
-  const r = await run('sign-keys', '--in', 'keyset.json', '--signer', 'root-1=root.pem', '--out', 'keys.json');
+  chmodSync(p('root.pem'), 0o644); // on Windows the file already reports 0o666
+  const r = await runOn('linux', 'sign-keys', '--in', 'keyset.json', '--signer', 'root-1=root.pem', '--out', 'keys.json');
   assert.equal(r.code, 1);
   assert.match(r.err, /chmod 600/);
   assert.equal(existsSync(p('keys.json')), false);
+});
+
+test('on Windows the key file permissions are not checked: keygen and signing warn and go on', async () => {
+  const key = await runOn('win32', 'keygen', '--keyid', 'root-1', '--out', 'root.pem');
+  assert.equal(key.code, 0);
+  assert.match(key.err, /not checked on Windows; root\.pem is protected only by the ACL of its directory/);
+  write('keyset.json', { hcsVersion: '0.1', version: 1, keys: [{ keyid: 'online-1', keytype: 'ed25519', public: JSON.parse(key.out).public, notBefore: '2026-01-01T00:00:00Z', notAfter: '2027-01-01T00:00:00Z' }] });
+  chmodSync(p('root.pem'), 0o644);
+  const r = await runOn('win32', 'sign-keys', '--in', 'keyset.json', '--signer', 'root-1=root.pem', '--out', 'keys.json');
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.err, /not checked on Windows; root\.pem is protected only by the ACL/);
+  assert.equal(existsSync(p('keys.json')), true);
 });
 
 test('signer problems: not a PEM, missing file, malformed --signer', async () => {
