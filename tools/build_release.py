@@ -47,6 +47,9 @@ REPO_URL = "https://github.com/FullFran/hcs"
 MD_LINK = re.compile(r"(\[[^\]]*\])\(([^)\s#]*)(#[^)\s]*)?\)")
 CODE = re.compile(r"```.*?```|`[^`\n]*`", re.S)
 URI_SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
+# Names Windows cannot create, so a consumer there could not check out a vendored release (#100).
+WINDOWS_RESERVED = re.compile(r"^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$", re.I)
+WINDOWS_FORBIDDEN = set('<>:"|?*\\')
 
 
 def git(*args, binary=False):
@@ -64,7 +67,15 @@ def read_tree(ref):
                 files[member.name] = tar.extractfile(member).read()
             elif not member.isdir():
                 sys.exit(f"unsupported member type in release tree: {member.name}")
+    unportable = [p for p in sorted(files) if any(not portable(c) for c in p.split("/"))]
+    if unportable:
+        sys.exit("paths Windows cannot check out:\n  " + "\n  ".join(unportable))
     return files
+
+
+def portable(name):
+    return not (WINDOWS_RESERVED.match(name) or name.endswith((" ", "."))
+                or any(c in WINDOWS_FORBIDDEN or ord(c) < 32 for c in name))
 
 
 def rewrite_links(files, version, ref):
@@ -94,11 +105,15 @@ def rewrite_links(files, version, ref):
                 return m.group(0)
             return f"{m.group(1)}({REPO_URL}/{kind}/v{version}/{resolved.rstrip('/')}{frag})"
 
-        text, parts, last = data.decode("utf-8"), [], 0
-        for code in CODE.finditer(text):  # links inside code spans and blocks are text, not links
-            parts += [MD_LINK.sub(fix, text[last:code.start()]), code.group(0)]
-            last = code.end()
-        out[path] = ("".join(parts) + MD_LINK.sub(fix, text[last:])).encode("utf-8")
+        text = data.decode("utf-8")
+        code = [m.span() for m in CODE.finditer(text)]
+
+        def fix_outside_code(m):
+            # A link inside a code span or block is text; a code span inside a link's text is not.
+            target_at = m.start(2) - 1
+            return m.group(0) if any(a <= target_at < b for a, b in code) else fix(m)
+
+        out[path] = MD_LINK.sub(fix_outside_code, text).encode("utf-8")
     if broken:
         sys.exit("broken relative links:\n  " + "\n  ".join(broken))
     return out
