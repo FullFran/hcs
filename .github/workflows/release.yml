@@ -75,7 +75,8 @@ jobs:
     env:
       VERSION: ${{ needs.ready.outputs.version }}
       PUBLISH: ${{ needs.ready.outputs.publish }}
-      OUT: ${{ github.workspace }}/../dist
+      # Outside the checkout; upload-artifact refuses paths with `..`.
+      OUT: ${{ github.workspace }}-dist
     steps:
       - uses: actions/checkout@v4
         with:
@@ -115,7 +116,9 @@ jobs:
           npm run build
           npm pack --pack-destination "$OUT"
       - name: Release notes
-        run: python3 tools/release.py notes "$VERSION" --dist "$OUT" --ref "$REF" > "$OUT/notes.md"
+        run: |
+          python3 tools/release.py notes "$VERSION" --dist "$OUT" --ref "$REF" > "$OUT/notes.md"
+          cat "$OUT/notes.md" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ needs.ready.outputs.version }}
