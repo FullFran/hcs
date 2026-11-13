@@ -10,11 +10,12 @@ Branches: one per PR off main; delivery: one PR per item, self-merged on green C
 - S5: "Verify each workflow for real (a PR run; for the tag workflow use workflow_dispatch with a dry-run input ...; never publish a real release)."
 
 ## Tasks
-- T1 [S2] inline: CI matrix (ubuntu, windows, macos) for selftest and SDK.
+- T1 [S2] inline: done, PR #107 (75c5e47). Windows SDK found three defects, filed #108; their 20 tests are skipped by name on Windows.
 - T2 [S1, S5] inline: release workflow with dry-run dispatch; bump script; docs/releasing.md.
 - T3 [S3] inline: exhaustive tests for SDK decision functions; R032-R035 assessment.
-- T4 [S4] inline: MAINTAINING.md.
+- T4 [S4] inline: MAINTAINING.md (in the T2 PR).
 
 ## Log
 - L1 (2026-11-13): task brief pasted by Fran (items 1-4, coordination with the draft.11 release, self-merge on green CI).
 - L2: draft.11 is published and its procedure PR #106 is merged, so item 1 is unblocked. `npm view @fullfran/hcs-sdk` returns 404 and the release notes install the SDK from the release tarball: the SDK is not on npm, so the workflow does not publish to npm. The repository has no Actions secrets.
+- L3: #107 run 43490340326 green on the three OS (Windows SDK: 230 tests, 228 pass, 0 fail). Rebuilding draft.11 at 2829836 reproduces the published sha256 of the tarball, SHA256SUMS and index.json; the SDK .tgz from npm pack does not reproduce (1bdd08... vs published d6b128...).
