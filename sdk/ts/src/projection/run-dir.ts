@@ -1,5 +1,5 @@
 // Materializes a launch plan into a new run directory, and builds the run's environment at launch.
-import { mkdirSync, readdirSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync, chmodSync } from 'node:fs';
+import { mkdirSync, readdirSync, renameSync, rmdirSync, rmSync, statSync, symlinkSync, writeFileSync, chmodSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import type { LaunchPlan, SecretRef } from './types.ts';
@@ -26,7 +26,10 @@ export function writeRunDir(plan: LaunchPlan, dir: string): void {
         if (file.mode !== undefined) chmodSync(path, file.mode);
       }
     }
-    renameSync(staging, target); // replaces an empty directory, refuses a non-empty one
+    // POSIX rename replaces an empty directory and refuses a non-empty one. Windows refuses both, so the empty
+    // directory is removed first; rmdir refuses a directory that is no longer empty.
+    if (existing !== undefined && process.platform === 'win32') rmdirSync(target);
+    renameSync(staging, target);
   } catch (error) {
     rmSync(staging, { recursive: true, force: true });
     throw error;
