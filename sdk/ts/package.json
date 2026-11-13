@@ -22,7 +22,7 @@
   "scripts": {
     "test": "node --test \"test/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json",
-    "build": "rm -rf dist && tsc --ignoreConfig src/index.ts src/cli/bin.ts --rootDir src --outDir dist --declaration --target es2024 --module nodenext --types node --strict --erasableSyntaxOnly --verbatimModuleSyntax --rewriteRelativeImportExtensions --skipLibCheck"
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc --ignoreConfig src/index.ts src/cli/bin.ts --rootDir src --outDir dist --declaration --target es2024 --module nodenext --types node --strict --erasableSyntaxOnly --verbatimModuleSyntax --rewriteRelativeImportExtensions --skipLibCheck"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
