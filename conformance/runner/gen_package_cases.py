@@ -87,7 +87,7 @@ def build():
         ("dotdot-leading", "A member whose path starts with .. is refused.", member("../b", data=b"x")),
         ("empty", "A member with an empty name is refused.", member("", data=b"x")),
         ("root-dot", "A directory member that names only the root is an empty path.", member("./", "5")),
-        ("nul", "A name with bytes hidden after a NUL is refused.", hidden_nul()),
+        ("hidden-nul", "A name with bytes hidden after a NUL is refused.", hidden_nul()),
         ("backslash", "A backslash in a path is refused.", member("a\\b", data=b"x")),
         ("whiteout", "A path component that starts with .wh. is refused.", member("d/.wh.old", data=b"")),
         ("opaque-whiteout", "The OCI opaque whiteout name is refused.", member(".wh..wh..opq")),
