@@ -1,6 +1,6 @@
 // A fake engine adapter for the projection tests. Its "engine" reads skills from `<runDir>/skills/<name>` (links),
 // servers from `<runDir>/servers/<name>.json`, and policy settings as stated by the contribution.
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import type { ContributionProjection, EngineAdapter, PlanFragment, ProjectionContribution, ProjectionEntry, ProjectionGeneration, ProjectedContribution, Setting } from '../../src/projection/index.ts';
 
 export const SKILL = 'skill';
@@ -40,7 +40,9 @@ export function fakeAdapter(options: { kinds?: string[]; assembled?: ProjectedCo
 }
 
 export const entry = (id: string, ...contributions: ProjectionContribution[]): ProjectionEntry =>
-  ({ id, root: `/hcs/generations/7/entries/${id}`, contributions });
+  ({ id, root: join(GEN, 'entries', id), contributions });
 export const skill = (name: string): ProjectionContribution => ({ kind: SKILL, path: `skills/${name}`, name });
 export const generation = (...entries: ProjectionEntry[]): ProjectionGeneration => ({ id: 'gen-7', entries });
-export const RUN = '/hcs/runs/gen-7-a';
+// Absolute paths of the platform the tests run on (`D:\hcs\...` on Windows).
+export const GEN = resolve('/hcs/generations/7');
+export const RUN = resolve('/hcs/runs/gen-7-a');

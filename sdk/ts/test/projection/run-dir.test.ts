@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+
+const LINK = resolve('/hcs/generations/7/entries/dev.example.notes/skills/notes');
 import { writeRunDir, type LaunchPlan } from '../../src/projection/index.ts';
 
 function scratch(t: { after(fn: () => void): void }): string {
@@ -15,7 +17,7 @@ const plan = (runDir: string): LaunchPlan => ({
   files: [
     { path: 'engine/config.json', content: '{"a":1}' },
     { path: 'bin/start', content: new Uint8Array([35, 33]), mode: 0o755 },
-    { path: 'skills/notes', link: '/hcs/generations/7/entries/dev.example.notes/skills/notes' },
+    { path: 'skills/notes', link: LINK },
   ],
 });
 
@@ -23,8 +25,8 @@ test('writeRunDir materializes the plan into a new directory', t => {
   const run = join(scratch(t), 'run');
   writeRunDir(plan(run), run);
   assert.equal(readFileSync(join(run, 'engine/config.json'), 'utf8'), '{"a":1}');
-  assert.equal(statSync(join(run, 'bin/start')).mode & 0o777, 0o755);
-  assert.equal(readlinkSync(join(run, 'skills/notes')), '/hcs/generations/7/entries/dev.example.notes/skills/notes');
+  if (process.platform !== 'win32') assert.equal(statSync(join(run, 'bin/start')).mode & 0o777, 0o755); // no execute bit on Windows
+  assert.equal(readlinkSync(join(run, 'skills/notes')), LINK);
   assert.deepEqual(readdirSync(run).sort(), ['bin', 'engine', 'skills']);
 });
 

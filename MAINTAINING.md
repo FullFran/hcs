@@ -23,8 +23,6 @@ Linux, Windows and macOS:
 - `conformance/runner/run.py --selftest`: every conformance case is well formed and the reference
   functions give the expected results.
 - TypeScript SDK: typecheck, tests (including the SDK's own run of the conformance cases) and build.
-  On Windows the tests broken by [#108](https://github.com/FullFran/hcs/issues/108) are skipped by
-  name until it is fixed.
 
 A pull request that changes the release machinery also rehearses a release (see above).
 

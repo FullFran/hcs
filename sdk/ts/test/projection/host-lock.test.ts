@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HOST_LOCK_FORMAT, lockWidenings, projectGeneration, readHostLock, validateHostLock, type HostLock } from '../../src/projection/index.ts';
+import { join } from 'node:path';
 import { entry, fakeAdapter, generation, POLICY, RUN, SERVER, skill } from './fake-adapter.ts';
 
 const codes = (errors: { code: string; entry?: string }[]) => errors.map(e => `${e.code} ${e.entry}`).sort();
@@ -57,7 +58,7 @@ test('host-owned environment and arguments come first and win; a contribution th
   const { plan, report } = projectGeneration(gen, fakeAdapter(), lock({ env: { HOME: `${RUN}/home` }, argv: ['--no-discovery'] }), { runDir: RUN, activationPolicy: 'partial' });
   assert.deepEqual(codes(report.errors), ['permission_denied dev.example.p']);
   assert.deepEqual(plan.env, { HOME: `${RUN}/home` });
-  assert.deepEqual(plan.argv, ['--no-discovery', '--skill', `${RUN}/skills/notes`]);
+  assert.deepEqual(plan.argv, ['--no-discovery', '--skill', join(RUN, 'skills', 'notes')]);
 });
 
 test('lockWidenings lists every way a new lock is looser than the previous one', () => {

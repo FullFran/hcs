@@ -6,7 +6,8 @@ import type { HcsError } from '../errors.ts';
 // host read from the package (for example a skill's Agent Skills `name`, or the `server.json` document).
 export interface ProjectionContribution { kind: string; path?: string; [key: string]: unknown }
 
-// One selected entry of a generation, in activation order, with the absolute root of its unpacked content.
+// One selected entry of a generation, in activation order, with the absolute root of its unpacked content, as a
+// normalized path of the host's platform (native separators).
 // The root resolves inside the generation by its identifier, never through a pointer the host moves (R001).
 export interface ProjectionEntry { id: string; version?: string; root: string; contributions: ProjectionContribution[] }
 export interface ProjectionGeneration { id: string; entries: ProjectionEntry[] }
@@ -29,7 +30,8 @@ export interface SecretInput { input: string; required: boolean }
 export interface SecretRef { entry: string; input: string; env: string }
 
 // A file the plan places under the run directory, by path relative to it: literal content, or a symbolic link
-// to an absolute path inside the generation (a skill directory is linked, never copied with changes, R008).
+// to an absolute path inside the generation (a skill directory is linked, never copied with changes, R008). `path`
+// always uses `/`; `link` is a normalized path of the host's platform under an entry root.
 export type PlanFile =
   | { path: string; content: string | Uint8Array; mode?: number }
   | { path: string; link: string };

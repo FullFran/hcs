@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkServerJson, readServerJson, serverJsonSecretInputs } from '../../src/mcp-server.ts';
 import { projectGeneration, type ContributionProjection, type EngineAdapter, type ProjectionContribution, type SecretInput, type SecretRef, type Setting } from '../../src/projection/index.ts';
@@ -73,10 +73,10 @@ const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }
 const norm = (errors: Err[]) => errors.map(e => JSON.stringify({ ...(e.capability ? { capability: e.capability } : {}), code: e.code, ...(e.entry ? { entry: e.entry } : {}) })).sort();
 
 export function runCase(input: Json): { errors: Err[]; selected: string[] } {
-  const generation = { id: input.generation.id, entries: input.generation.entries.map((e: Json) => ({ id: e.id, root: `/conformance/${input.generation.id}/entries/${e.id}`, contributions: e.contributions })) };
+  const generation = { id: input.generation.id, entries: input.generation.entries.map((e: Json) => ({ id: e.id, root: join(resolve('/conformance'), input.generation.id, 'entries', e.id), contributions: e.contributions })) };
   const secrets: SecretRef[] = Object.entries((input.grantedSecrets ?? {}) as Record<string, string[]>).flatMap(([entry, names]) => names.map((name, i) => ({ entry, input: name, env: `HCS_SECRET_${i}` })));
   const { report } = projectGeneration(generation, referenceAdapter(input.projectableKinds ?? [], input.hostRuntimes ?? {}, input.clientLimits?.toolListBytes), undefined,
-    { runDir: '/conformance/run', hostOwned: input.hostOwned ?? [], secrets, activationPolicy: input.activationPolicy ?? 'all-or-nothing' });
+    { runDir: resolve('/conformance/run'), hostOwned: input.hostOwned ?? [], secrets, activationPolicy: input.activationPolicy ?? 'all-or-nothing' });
   return { errors: report.errors, selected: report.selected };
 }
 

@@ -1,6 +1,6 @@
 // HCS-0008 projection core: turns one generation into a launch plan for one engine run through an engine adapter,
 // and reports every contribution as projected or with an HCS-0006 error. Engine knowledge stays in the adapter.
-import { isAbsolute, posix } from 'node:path';
+import { isAbsolute, normalize, sep } from 'node:path';
 import { hcsError, type HcsError, type HcsErrorCode } from '../errors.ts';
 import { levelRank, validateHostLock, type HostLock } from './host-lock.ts';
 import type {
@@ -23,10 +23,11 @@ function checkRunPath(path: string): void {
 }
 
 // A link target must name content inside the generation by its identifier (R001), never a user-global location
-// (R025) or a pointer the host moves.
+// (R025) or a pointer the host moves. Targets and roots are absolute paths of the host's platform, already normalized
+// (native separators, no `.` or `..`), so `D:\hcs\...` on Windows and `/hcs/...` elsewhere.
 function checkLinkTarget(target: string, roots: string[]): void {
-  const inside = typeof target === 'string' && target.startsWith('/') && posix.normalize(target) === target
-    && roots.some(root => target === root || target.startsWith(`${root}/`));
+  const inside = typeof target === 'string' && isAbsolute(target) && normalize(target) === target
+    && roots.some(root => target === root || target.startsWith(root.endsWith(sep) ? root : `${root}${sep}`));
   if (!inside) throw new TypeError(`Adapter linked outside the generation: ${JSON.stringify(target)}`);
 }
 
@@ -40,14 +41,14 @@ function checkFragment(fragment: PlanFragment, roots: string[]): void {
 }
 
 export function projectGeneration(generation: ProjectionGeneration, adapter: EngineAdapter, hostLock: HostLock | undefined, options: ProjectOptions): ProjectionResult {
-  if (!isAbsolute(options.runDir) || posix.normalize(options.runDir) !== options.runDir.replace(/\/$/, '')) throw new TypeError(`Run directory must be an absolute normalized path: ${options.runDir}`);
+  if (!isAbsolute(options.runDir) || normalize(options.runDir) !== (options.runDir.endsWith(sep) ? options.runDir.slice(0, -1) : options.runDir)) throw new TypeError(`Run directory must be an absolute normalized path: ${options.runDir}`);
   const runDir = options.runDir.replace(/(.)\/$/, '$1');
   if (hostLock !== undefined) {
     const problems = validateHostLock(hostLock);
     if (problems.length > 0) throw new TypeError(`Invalid host lock: ${problems.join('; ')}`);
   }
   for (const entry of generation.entries) {
-    if (!isAbsolute(entry.root) || posix.normalize(entry.root) !== entry.root) throw new TypeError(`Entry root must be an absolute normalized path: ${entry.root}`);
+    if (!isAbsolute(entry.root) || normalize(entry.root) !== entry.root) throw new TypeError(`Entry root must be an absolute normalized path: ${entry.root}`);
   }
   const roots = generation.entries.map(entry => entry.root);
   const hostOwned = new Set([...(options.hostOwned ?? []), ...(hostLock?.reserved ?? [])]);

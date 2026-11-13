@@ -16,7 +16,14 @@ export interface CliIo {
   stderr(text: string): void;
   cwd: string;
   now(): Date;
+  // The platform whose file-permission rules apply; defaults to process.platform.
+  platform?: NodeJS.Platform;
 }
+
+// Windows has no POSIX modes (fs.stat reports 0o666 for any writable file), so a key file there is protected only by
+// the ACL of its directory. The CLI does not check it and says so.
+const windowsKeyWarning = (path: string) =>
+  `warning: file permissions are not checked on Windows; ${path} is protected only by the ACL of its directory\n`;
 
 const USAGE = `usage: hcs-sdk <command> [options]
 
@@ -68,7 +75,10 @@ function readInput(io: CliIo, path: string, what: string): string {
   catch (e) { throw new CliFailure(`cannot read ${what} ${path}: ${(e as NodeJS.ErrnoException).code ?? 'error'}`); }
 }
 
-/** Reads `keyid=path`; refuses a key file readable by group or others (like ssh). Never echoes file contents. */
+/**
+ * Reads `keyid=path`; refuses a key file readable by group or others (like ssh), except on Windows, where it warns
+ * instead. Never echoes file contents.
+ */
 function readSigner(io: CliIo, spec: string): Signer {
   const at = spec.indexOf('=');
   if (at <= 0 || at === spec.length - 1) throw new UsageError(`--signer expects <keyid>=<private.pem>, got "${spec}"`);
@@ -81,7 +91,8 @@ function readSigner(io: CliIo, spec: string): Signer {
   try {
     const stat = fstatSync(fd);
     if (!stat.isFile()) throw new CliFailure(`private key ${path} is not a regular file`);
-    if (stat.mode & 0o077) throw new CliFailure(`private key ${path} is accessible by group or others (mode ${(stat.mode & 0o777).toString(8).padStart(3, '0')}); run: chmod 600 ${path}`);
+    if ((io.platform ?? process.platform) === 'win32') io.stderr(windowsKeyWarning(path));
+    else if (stat.mode & 0o077) throw new CliFailure(`private key ${path} is accessible by group or others (mode ${(stat.mode & 0o777).toString(8).padStart(3, '0')}); run: chmod 600 ${path}`);
     try { return readSignerPem(keyid, readFileSync(fd, 'utf8')); }
     catch { throw new CliFailure(`${path} is not a PKCS#8 PEM Ed25519 private key (create one with: hcs-sdk keygen)`); }
   } finally { closeSync(fd); }
@@ -130,9 +141,12 @@ function keygen(args: readonly string[], io: CliIo): number {
   const keyid = required(values.keyid, '--keyid'), out = required(values.out, '--out');
   if (!KEYID.test(keyid)) throw new UsageError(`--keyid "${keyid}" must match ${KEYID.source}`);
   const parent = dirname(resolve(io.cwd, out));
-  try {
-    if (statSync(parent).mode & 0o077) io.stderr(`warning: ${parent} is accessible by group or others\n`);
-  } catch { /* the write below reports a missing directory */ }
+  if ((io.platform ?? process.platform) === 'win32') io.stderr(windowsKeyWarning(out));
+  else {
+    try {
+      if (statSync(parent).mode & 0o077) io.stderr(`warning: ${parent} is accessible by group or others\n`);
+    } catch { /* the write below reports a missing directory */ }
+  }
   const { seed, publicKey } = generateKeyPair();
   writeOutput(io, out, seedToPem(seed), values.force === true, 0o600);
   io.stdout(canonicalize({ keyid, keytype: 'ed25519', public: publicKey }) + '\n');

@@ -89,7 +89,10 @@ test('unpack enforces limits, seals files and directories, and requires a fresh 
   const bytes = gzipSync(writeTar([{ name: 'd/', type: 'directory' }, { name: 'd/f', data: Buffer.from('hello') }]));
   for (const limits of [{ maxBytes: 4 }, { maxMembers: 1 }]) { assert.throws(() => unpackPackage(bytes, expected(bytes), join(dir, 'out'), limits), invalid); assert.deepEqual(readdirSync(dir), []); }
   const target = join(dir, 'out'); unpackPackage(bytes, expected(bytes), target);
-  assert.equal(readFileSync(join(target, 'd/f'), 'utf8'), 'hello'); assert.equal(statSync(target).mode & 0o777, 0o555); assert.equal(statSync(join(target, 'd')).mode & 0o777, 0o555); assert.equal(statSync(join(target, 'd/f')).mode & 0o777, 0o444);
+  assert.equal(readFileSync(join(target, 'd/f'), 'utf8'), 'hello');
+  // Sealed means no write bit anywhere. Windows has no execute bit and reports a read-only entry as 0o444.
+  for (const path of [target, join(target, 'd'), join(target, 'd/f')]) assert.equal(statSync(path).mode & 0o222, 0, path);
+  if (process.platform !== 'win32') { assert.equal(statSync(target).mode & 0o777, 0o555); assert.equal(statSync(join(target, 'd')).mode & 0o777, 0o555); assert.equal(statSync(join(target, 'd/f')).mode & 0o777, 0o444); }
   assert.throws(() => unpackPackage(bytes, expected(bytes), target));
 }));
 
@@ -178,8 +181,11 @@ test('the executable bit survives build and unpack, normalized to 0755/0644', ()
     const built = buildPackage(src);
     const out = join(root, 'out');
     unpackPackage(built.bytes, built, out);
-    assert.notEqual(statSync(join(out, 'scripts', 'run.sh')).mode & 0o111, 0, 'executable file keeps its x bit');
-    assert.equal(statSync(join(out, 'SKILL.md')).mode & 0o111, 0, 'plain file stays non-executable');
+    // Windows has no execute bit: a package built there records every file as 0644 (see README).
+    if (process.platform !== 'win32') {
+      assert.notEqual(statSync(join(out, 'scripts', 'run.sh')).mode & 0o111, 0, 'executable file keeps its x bit');
+      assert.equal(statSync(join(out, 'SKILL.md')).mode & 0o111, 0, 'plain file stays non-executable');
+    }
     // Owner-only source modes normalize to 0755/0644 in the archive, so the digest ignores umask and group bits.
     chmodSync(join(src, 'scripts', 'run.sh'), 0o755); chmodSync(join(src, 'SKILL.md'), 0o644);
     assert.deepEqual(buildPackage(src).bytes, built.bytes);
