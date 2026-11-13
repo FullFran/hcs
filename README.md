@@ -138,7 +138,8 @@ Maintainers build the artefact with `python3 tools/build_release.py --version
 <version>` (output in `dist/`, ignored by git); `--check` builds twice and
 fails unless the bytes match. Markdown links to files outside the artefact are
 rewritten to URLs at tag `v<version>`, and a link the build cannot resolve
-fails it. Release notes live in `docs/releases/`.
+fails it. Release notes live in `docs/releases/`; [docs/releasing.md](docs/releasing.md) lists the steps
+of a release.
 
 ## License
 
