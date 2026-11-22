@@ -1,5 +1,6 @@
 // Key set (HCS-0007 section 5.3) and envelope (section 5.2) verification, in the order the spec
 // fixes, stopping at the first failure (R009).
+import { checkEnvelopeSequence, checkKeySetVersion } from './acceptance.ts';
 import { ed25519Verify } from './ed25519.ts';
 import { contentDigest, ENVELOPE_PAYLOAD_TYPE, KEY_SET_PAYLOAD_TYPE, signingInput } from './pae.ts';
 import { assertAssignment, assertTrustAnchor, checkEnvelopeShape, checkKeySetShape, parseInstant } from './shape.ts';
@@ -64,9 +65,8 @@ export function verifyKeySet(keySet: unknown, opts: { trustAnchor: TrustAnchor; 
   if (countSigners(ks, KEY_SET_PAYLOAD_TYPE, roots) < threshold)
     return { ok: false, errors: [fail('signature_invalid', `key set lacks valid signatures from ${threshold} distinct root key(s)`, 'HCS-0007-R011')] };
   const digest = contentDigest(ks);
-  const last = opts.lastAccepted;
-  if (last && (ks.version < last.version || (ks.version === last.version && digest !== last.digest)))
-    return { ok: false, errors: [fail('rollback_rejected', `key set version ${ks.version} rolls back accepted version ${last.version}`, 'HCS-0007-R012')] };
+  const accepted = checkKeySetVersion({ version: ks.version, digest }, opts.lastAccepted);
+  if (!accepted.ok) return { ok: false, errors: [accepted.error] };
   if (!ks.keys.some(k => validAt(k, now)))
     return { ok: false, errors: [fail('signature_invalid', 'no key of the key set is within its validity window', 'HCS-0007-R013')] };
   const copy = structuredClone(ks) as VerifiedKeySet;
@@ -107,9 +107,8 @@ export function verifyEnvelope(envelope: unknown, opts: {
     return { ok: false, step: 4, errors: [fail('signature_invalid', `envelope expired at ${env.expires}`, 'HCS-0007-R007')] };
 
   const digest = contentDigest(env);
-  const last = opts.lastAccepted;
-  if (last && (env.sequence < last.sequence || (env.sequence === last.sequence && digest !== last.digest)))
-    return { ok: false, step: 5, errors: [fail('rollback_rejected', `envelope sequence ${env.sequence} rolls back accepted sequence ${last.sequence}`, 'HCS-0007-R008')] };
+  const accepted = checkEnvelopeSequence({ sequence: env.sequence, digest }, opts.lastAccepted);
+  if (!accepted.ok) return { ok: false, step: 5, errors: [accepted.error] };
 
   const catalogErrors = opts.validateCatalog(env.catalog);
   if (catalogErrors.length)

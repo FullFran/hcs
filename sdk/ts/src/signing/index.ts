@@ -8,5 +8,6 @@ export {
   verifyKeySet, verifyEnvelope, verifySignedCatalog,
   type VerifiedKeySet, type CatalogValidator, type KeySetVerification, type EnvelopeVerification, type SignedCatalogVerification,
 } from './verify.ts';
+export { checkEnvelopeSequence, checkKeySetVersion, nextSequence, SigningRejection, type Acceptance } from './acceptance.ts';
 export { signDocument, signEnvelope, signKeySet, createEnvelope } from './sign.ts';
 export { isPrivateKeyMaterial, seedToPem, readSignerPem } from './keys.ts';
