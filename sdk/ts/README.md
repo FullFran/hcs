@@ -52,6 +52,7 @@ Older closed-schema catalog validators reject `contentId`; this draft addition d
 | `src/projection/` (exported as `projection`) | HCS-0008 (host adapter), host lock (SDK extension) | written from the spec and `conformance/runner/projection.py` |
 | `src/mcp-server.ts` | HCS-0008 (R010, R011) | written from the spec and `conformance/runner/projection.py` |
 | `src/tool-effects.ts` | HCS-0009 (R001, R003 to R005) | written from the spec; `annotationsFor(declared)` maps a tool's declared effect class to MCP annotations (a missing, unknown or malformed one is the most dangerous), `checkServerToolEffects(serverJson)` is R001, `classifyTools(serverJson, listedTools)` classifies what `tools/list` returned and never reads the server's own annotations |
+| `src/tool-names.ts` | HCS-0009-R007, HCS-0008-R040 | written from the spec and issues #111 and #113; DeepSeek Harness read as prior art only, no code copied |
 
 ## Publisher CLI
 
@@ -174,3 +175,7 @@ The SDK runs on Windows, Linux and macOS (CI runs the whole suite on the three).
 - **Key files**: the CLI does not check permissions and warns instead (see the CLI section); the protection is the directory's ACL.
 - **Projection paths**: entry roots, link targets and the run directory are absolute, normalized paths of the host's platform (`D:\hcs\generations\7\...` on Windows). Paths inside the run directory (`PlanFile.path`) always use `/`. `writeRunDir` links a directory as a junction, which needs no privilege.
 - **File modes**: Windows has no execute bit. `buildPackage` records every file as `0644` there, so a package built on Windows has no executable files; build packages with scripts on Linux or macOS. `unpackPackage` seals files and directories read-only.
+
+## Tool names (HCS-0009-R007, HCS-0008-R040)
+
+`buildToolNameMap(rule, servers, hostTools?)` is pure. `rule` is `'opencode'`, `'pi'`, `'mcp-double-underscore'` or a function `(server, tool) => engineName`; `servers` are the projected `mcp-server` contributions in generation order, each `{ contribution, server, tools }`. It returns `map` (engine name to `{ contribution, tool }`, to look a declaration up without parsing the name) and `reported`: one `{ contribution, code, reason, tool, engineName }` per entry to report. A collision between entries is `ambiguous_provider` for each entry involved (R006 through R040); a tool that takes a host tool's name, or two tools of one entry that share a name, is `unsupported_contribution`. No colliding entry keeps tools in the map, generation order does not matter, and two inputs with the same `contribution` throw a `TypeError`. Pi's rule covers the 64-character cut with the hash suffix; its run-time collision case depends on engine state and is not modelled. Rebuild the map whenever the tool list changes (HCS-0009-R008).
