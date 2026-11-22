@@ -1,0 +1,92 @@
+{
+  "description": "online-1 is limited to channel stable and signs an envelope for channel beta; the host is on stable. The scope is judged at step 2, so signature_invalid, not permission_denied.",
+  "requirements": [
+    "HCS-0007-R030"
+  ],
+  "level": "distribution",
+  "input": {
+    "check": "envelope",
+    "now": "2026-11-06T12:00:00Z",
+    "trustAnchor": {
+      "keys": [
+        {
+          "keyid": "root-1",
+          "keytype": "ed25519",
+          "public": "LWB8cicdNrnQPkwy2jC4f24oJ6JOv49Apy61kpnIRsU="
+        }
+      ],
+      "threshold": 1
+    },
+    "keySet": {
+      "hcsVersion": "0.1",
+      "version": 3,
+      "keys": [
+        {
+          "keyid": "online-1",
+          "keytype": "ed25519",
+          "public": "oNkoBdUQ0xTyv7u+lLzrl8w7lkU/9tOfYLgHuY8YZDs=",
+          "notBefore": "2026-01-01T00:00:00Z",
+          "notAfter": "2027-01-01T00:00:00Z",
+          "binding": {
+            "channel": "stable"
+          }
+        }
+      ],
+      "signatures": [
+        {
+          "keyid": "root-1",
+          "sig": "GOPdm4XGImP1AJ2qYNoZpzRjVEE7wqb2YGr1fDceyb4906KcOw7bv3MSW4TIBD0y8Ng7gAkqLCBZJbyhmZyNDA=="
+        }
+      ]
+    },
+    "envelope": {
+      "hcsVersion": "0.1",
+      "sequence": 42,
+      "expires": "2026-11-13T00:00:00Z",
+      "binding": {
+        "tenant": "t-0001",
+        "profile": "desktop",
+        "channel": "beta"
+      },
+      "catalog": {
+        "hcsVersion": "0.1",
+        "id": "dev.example.desktop",
+        "version": "2026.11.06-1",
+        "entries": [
+          {
+            "id": "dev.example.notes",
+            "version": "1.4.0",
+            "contentHash": "sha256:4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f",
+            "size": 18342,
+            "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+            "contributions": [
+              {
+                "kind": "skill",
+                "path": "skills/take-notes"
+              }
+            ]
+          }
+        ]
+      },
+      "signatures": [
+        {
+          "keyid": "online-1",
+          "sig": "Pj6Ya8o2bYMgvr1YITybpNTK9V2qg6u62B37oGO8JNVfFh4uazB+Q8/TA4pDnB4npDMKs6crWhRLhQV7roh4DQ=="
+        }
+      ]
+    },
+    "assignment": {
+      "tenant": "t-0001",
+      "profile": "desktop",
+      "channel": "stable"
+    }
+  },
+  "expect": {
+    "outcome": "invalid",
+    "errors": [
+      {
+        "code": "signature_invalid"
+      }
+    ]
+  }
+}

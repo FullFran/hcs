@@ -1,0 +1,13 @@
+{
+  "description": "No interruption of a switch may leave the host on one assignment with the accepted state of the other.",
+  "requirements": [
+    "HCS-0007-R032"
+  ],
+  "level": "host",
+  "input": {
+    "scenario": "Assigned to A with accepted envelope sequence 40 for A; accepted envelope sequence 7 for B from an earlier stay on B. The host is told to switch to B. Repeat the switch once per write it makes, killing the host after that write; after each restart deliver B's envelope 8 and A's envelope 39."
+  },
+  "expect": {
+    "behaviour": "At every interruption point the host is either on A with A's state (B's envelope 8 is refused with permission_denied, A's envelope 39 with rollback_rejected) or on B with B's state (B's envelope 8 is accepted, A's envelope 39 is refused with permission_denied). A host that verifies B's envelope 8 against A's sequence 40, or A's envelope 39 against B's sequence 7, does not conform."
+  }
+}

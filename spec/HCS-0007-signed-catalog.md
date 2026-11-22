@@ -70,7 +70,7 @@ The root key signs a key set; the keys in it sign envelopes. Rotating online key
 | `signatures` | no | array of `{keyid, sig}` | root signatures |
 | `x-*` | no | any value in the canonical domain | extension members |
 
-A key has `keyid`, `keytype` (`ed25519`), `public` (32 bytes, base64), `notBefore` (inclusive) and `notAfter` (exclusive), both RFC 3339 UTC timestamps.
+A key has `keyid`, `keytype` (`ed25519`), `public` (32 bytes, base64), `notBefore` (inclusive) and `notAfter` (exclusive), both RFC 3339 UTC timestamps. A key may also have `binding`, an object with the grammar of the envelope `binding`; it limits the envelopes the key counts for (R030). A key without `binding` counts for any envelope.
 
 ### 3.3 Trust anchor, assignment and accepted state
 
@@ -78,7 +78,7 @@ These are host inputs, not published documents; the schema defines their shape s
 
 - **Trust anchor:** the root public keys and their threshold (default 1), received at enrollment. Root keys sign key sets only. A host changes its trust anchor only by means outside this document, never from a document it verifies (R025, section 5.3.1).
 - **Assignment:** the `binding` the host is enrolled for, received at enrollment.
-- **Accepted state:** for the last accepted envelope, its `sequence` and the sha256 digest of its canonical serialization without `signatures`; for the last accepted key set, its `version` and the same digest. Two documents have the same content when these digests are equal, whoever signed them.
+- **Accepted state:** for each assignment the host is or was enrolled for, the `sequence` and the sha256 digest of the canonical serialization without `signatures` of the last envelope accepted for it, and the `version` and the same digest of the last key set accepted for it (R031). Two documents have the same content when these digests are equal, whoever signed them.
 
 ## 4. Signature input
 
@@ -116,7 +116,7 @@ A host reads an envelope or a key set in this order and stops at the first failu
 2. `hcsVersion`. Another version is `unsupported_hcs_version` (R001, R002), even when the document also holds a number that breaks R004, has a wrong shape, repeats a `keyid` or exceeds a bound. A later contract may change those rules, so a host does not judge them for a version it does not implement.
 3. The number rule R004, then the shape, then (for a key set) the unique key `keyid` of R002, then R022, then R023.
 
-A host verifies an envelope in this order and stops at the first failure: (1) reading, version, number spelling and shape, R001, with the checks of R004, R022 and R023 in the order above; (2) signatures, R005; (3) binding, R006; (4) expiry, R007; (5) sequence, R008; (6) the catalog, R010. The current time is the host's clock; conformance cases state it explicitly.
+A host verifies an envelope in this order and stops at the first failure: (1) reading, version, number spelling and shape, R001, with the checks of R004, R022 and R023 in the order above; (2) signatures, R005, counted as R030 says; (3) binding, R006; (4) expiry, R007; (5) sequence, R008; (6) the catalog, R010. The current time is the host's clock; conformance cases state it explicitly.
 
 **[HCS-0007-R005]** A host MUST NOT accept an envelope unless valid signatures from at least `threshold` distinct public keys of its accepted key set, each within its validity window, cover the signature input, and MUST report `signature_invalid` otherwise.
 
@@ -141,6 +141,12 @@ Validity does not depend on the order of the signatures: a list with an invalid 
 **[HCS-0007-R023]** A host that limits the number of keys in a key set or of items in `signatures` MUST report `manifest_invalid` for a document that exceeds a limit and MUST do so before verifying any signature; HCS states no number, and a host MAY set such limits.
 
 For an envelope the order of step (1) is: readable (R003), `hcsVersion`, R004, shape, R022, R023. A key set is checked in the same order, with R002 in place of R001, and its unique key `keyid` (R002) is judged with the shape, before R022 and R023. A document at a limit is within it.
+
+### 5.2.2 Keys limited to a binding
+
+**[HCS-0007-R030]** A host MUST count a signature toward the threshold of R005 only when the signing key has no `binding` member, or every member of that `binding` appears in the envelope's `binding` with an equal value.
+
+R030 applies at step (2) and compares with the envelope's `binding`, because that is what the signature covers; once step (3) passes, the envelope's `binding` equals the assignment, so for every accepted envelope the key's `binding` is a part of the assignment. A key limited to `{"channel": "stable"}` counts for any envelope whose `binding` has `channel` equal to `stable`, whatever other members it has; a key limited to `{"tenant": "t-0002"}` does not count for an envelope addressed to tenant `t-0001`. Members are compared for equality only; there are no patterns or ranges. A signature that R030 does not count is ignored as R024 ignores the signatures it lists, so an envelope whose valid signatures are all out of scope reports `signature_invalid` (R005), before the binding check of R006 (R009). Root keys have no `binding`; R030 does not apply to R011. TUF limits what a delegated role may sign with `paths` ([tuf.md](../docs/standards/tuf.md)); R030 does the same for one online key, with members of `binding` instead of path patterns.
 
 ### 5.3 Key set verification
 
@@ -171,6 +177,12 @@ This section is informative; it describes how the requirements above let a distr
 ### 5.4 Moving to the accepted set
 
 **[HCS-0007-R015]** A host MUST record an envelope's `sequence` and content digest as accepted only after every check of section 5.2 has passed, and MUST keep the accepted state of envelopes and key sets across restarts.
+
+**[HCS-0007-R031]** A host MUST keep the accepted state of section 3.3 separately for each assignment it is or was enrolled for, MUST compare an envelope's `sequence` (R008) and a key set's `version` (R012) only with the state kept for the assignment it verifies for, and MUST NOT discard the state of an assignment it has left.
+
+**[HCS-0007-R032]** A host that changes its assignment MUST make the change as one step: after a restart at any point of the change, the host MUST use either the previous assignment with its accepted state or the new assignment with its accepted state, and MUST NOT verify an envelope against a combination of the two.
+
+R031 identifies an assignment by equality as R006 defines it (same member names, same values); how a host stores the state is not specified, and a digest of the RFC 8785 serialization of the assignment is a usable key. The `sequence` and `version` counters of two assignments are not comparable: a host that carried one state across a change of assignment would refuse a legitimate envelope of the new assignment as `rollback_rejected`, and a host that reset it would accept an old envelope of an assignment it returns to. A host that accepted documents under a single state before R031 treats that state as the state of its current assignment. R032 is the atomic switch of R017 applied to the record that names the current assignment: that record is replaced in one step, and the accepted state is found through it. How the new assignment reaches the host is enrollment (section 1).
 
 **[HCS-0007-R016]** A host that claims DISTRO-1 MUST use the `all-or-nothing` activation policy of HCS-0003.
 
@@ -209,4 +221,6 @@ Section 5.5 cannot be checked by a conformance case; it describes how a distribu
 - OQ-0007-7: whether a host must refuse an Ed25519 public key of small order (a key whose multiples by the cofactor are the identity). With such a key, a signature can verify for more than one message, so the signature need not bind the document to a key holder; whether that matters depends on how a deployment issues keys. HCS-0007 does not say, and the reference implementation does not refuse them; no requirement is written until a second implementation or a deployment shows which behavior hosts need.
 - OQ-0007-8: whether HCS-0007 should define a published root rotation chain, as TUF does with root documents each signed by the threshold of the previous and of the new root, so that a host reaches a new trust anchor without enrollment or a host update. Today a host that missed the overlap of R027 needs to be enrolled again.
 - OQ-0007-9: whether a host must stop running, or may keep running, the desired set of an accepted envelope that no longer verifies once a key set removes its signing key, until a re-signed envelope arrives. TUF refreshes every role on each update; HCS-0007 does not say when a host verifies an accepted envelope again.
-- OQ-0007-10: keys limited to one `binding` member, with accepted state kept per member. One harness limits each key to a tenant with an extension member and keeps its rollback state per tenant; no requirement is written until a second harness needs it (README rule 1).
+- OQ-0007-10: closed (draft.13). A key may carry a `binding` that limits the envelopes it counts for (R030), and accepted state is kept per assignment with an atomic switch of assignment (R031, R032). The limit is a part of the binding compared member by member, not one member, and state is kept per whole assignment ([ADR-0041](../docs/adr/0041-binding-scoped-keys-and-per-assignment-state.md)).
+- OQ-0007-11: whether the accepted state a host keeps for assignments it has left (R031) may be bounded. A host that bounds it would have to treat an assignment whose state it dropped as needing enrollment again, never as an assignment with no state; HCS-0007 states no bound.
+- OQ-0007-12: how R031 and R032 read when a host holds several assignments at once (issue #27); R031 already keeps state per assignment, and R032 would apply to the set of current assignments.

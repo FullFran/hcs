@@ -1,0 +1,33 @@
+{
+  "description": "A key limited to channel stable with a binding member.",
+  "requirements": [
+    "HCS-0007-R002"
+  ],
+  "level": "document",
+  "target": "urn:hcs:schema:hcs-0007:signed-catalog:0.1#/$defs/keySet",
+  "input": {
+    "hcsVersion": "0.1",
+    "version": 3,
+    "keys": [
+      {
+        "keyid": "online-1",
+        "keytype": "ed25519",
+        "public": "oNkoBdUQ0xTyv7u+lLzrl8w7lkU/9tOfYLgHuY8YZDs=",
+        "notBefore": "2026-01-01T00:00:00Z",
+        "notAfter": "2027-01-01T00:00:00Z",
+        "binding": {
+          "channel": "stable"
+        }
+      }
+    ],
+    "signatures": [
+      {
+        "keyid": "root-1",
+        "sig": "GOPdm4XGImP1AJ2qYNoZpzRjVEE7wqb2YGr1fDceyb4906KcOw7bv3MSW4TIBD0y8Ng7gAkqLCBZJbyhmZyNDA=="
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "valid"
+  }
+}

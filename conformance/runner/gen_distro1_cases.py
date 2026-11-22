@@ -47,8 +47,11 @@ def sign(doc, payload_type, *labels, keyids=None):
     return doc
 
 
-def online(label, nb="2026-01-01T00:00:00Z", na="2027-01-01T00:00:00Z"):
-    return {"keyid": label, "keytype": "ed25519", "public": pub(label), "notBefore": nb, "notAfter": na}
+def online(label, nb="2026-01-01T00:00:00Z", na="2027-01-01T00:00:00Z", binding=None):
+    key = {"keyid": label, "keytype": "ed25519", "public": pub(label), "notBefore": nb, "notAfter": na}
+    if binding is not None:
+        key["binding"] = binding
+    return key
 
 
 ANCHOR = {"keys": [{"keyid": "root-1", "keytype": "ed25519", "public": pub("root-1")}], "threshold": 1}
@@ -265,6 +268,8 @@ def cases():
     rotation_cases(add)
     textual_cases(add)
     signature_list_cases(add)
+    key_binding_cases(add)
+    per_assignment_cases(add)
     return out
 
 
@@ -427,6 +432,70 @@ def signature_list_cases(add):
         dict(key_set_input(two), limits={"maxKeys": 2}), ok())
     add("HCS-0007-R023", "invalid", "keys-over-limit", "Two keys with a host limit of one.", "distribution",
         dict(key_set_input(two), limits={"maxKeys": 1}), bad("manifest_invalid"))
+
+
+def key_binding_cases(add):
+    """R002 (a key binding has the envelope binding grammar) and R030 (a key counts only for envelopes its binding covers)."""
+    add("HCS-0007-R002", "valid", "scoped-key", "A key limited to channel stable with a binding member.", "document",
+        key_set([online("online-1", binding={"channel": "stable"})]), ok(), KS_T)
+    for name, binding, why in (("key-binding-empty", {}, "A key binding has at least one member, as an envelope binding has."),
+                               ("key-binding-non-string", {"channel": 1}, "Key binding values are strings, as in an envelope binding.")):
+        k = key_set(); k["keys"][0]["binding"] = binding
+        add("HCS-0007-R002", "invalid", name, why, "document", k, bad("manifest_invalid"), KS_T)
+
+    scoped = key_set([online("online-1", binding={"channel": "stable"})])
+    add("HCS-0007-R030", "valid", "scope-matches", "online-1 is limited to channel stable; the envelope binding has channel stable and other members.", "distribution",
+        verify_input(envelope(), scoped), ok())
+    add("HCS-0007-R030", "valid", "scope-equals-binding", "online-1 is limited to the whole assignment and signs an envelope for it.", "distribution",
+        verify_input(envelope(), key_set([online("online-1", binding=dict(ASSIGNMENT))])), ok())
+    add("HCS-0007-R030", "valid", "unscoped-key-unchanged", "A key without binding counts for any envelope, as before.", "distribution",
+        verify_input(envelope(), key_set([online("online-1")])), ok())
+    add("HCS-0007-R030", "valid", "threshold-2-one-scoped-one-unscoped", "Threshold 2: a key limited to channel stable and an unrestricted key both count.", "distribution",
+        verify_input(envelope(signers=("online-1", "online-2")),
+                     key_set([online("online-1", binding={"channel": "stable"}), online("online-2")], threshold=2)), ok())
+    add("HCS-0007-R030", "invalid", "key-scoped-to-other-binding", "online-1 is limited to tenant t-0002 and signs an envelope for tenant t-0001, the host's assignment: the signature does not count.", "distribution",
+        verify_input(envelope(), key_set([online("online-1", binding={"tenant": "t-0002"})])), bad("signature_invalid"))
+    add("HCS-0007-R030", "invalid", "scope-partially-matches", "online-1 is limited to tenant t-0001 and channel beta; the envelope has tenant t-0001 and channel stable.", "distribution",
+        verify_input(envelope(), key_set([online("online-1", binding={"tenant": "t-0001", "channel": "beta"})])), bad("signature_invalid"))
+    add("HCS-0007-R030", "invalid", "scope-member-not-in-binding", "online-1 is limited to region eu; the envelope binding has no region member.", "distribution",
+        verify_input(envelope(), key_set([online("online-1", binding={"region": "eu"})])), bad("signature_invalid"))
+    add("HCS-0007-R030", "invalid", "threshold-2-one-out-of-scope", "Threshold 2: two valid signatures, but online-1 is limited to channel beta, so only one counts.", "distribution",
+        verify_input(envelope(signers=("online-1", "online-2")),
+                     key_set([online("online-1", binding={"channel": "beta"}), online("online-2")], threshold=2)), bad("signature_invalid"))
+    add("HCS-0007-R030", "invalid", "scope-before-binding", "online-1 is limited to channel stable and signs an envelope for channel beta; the host is on stable. The scope is judged at step 2, so signature_invalid, not permission_denied.", "distribution",
+        verify_input(envelope(binding=dict(ASSIGNMENT, channel="beta")), scoped), bad("signature_invalid"))
+
+
+def per_assignment_cases(add):
+    """R031: accepted state kept per assignment (input.states), compared only with the record of the assignment verified."""
+    a, b = dict(ASSIGNMENT), dict(ASSIGNMENT, channel="beta")
+    zero = "sha256:" + "00" * 32
+
+    def record(assignment, sequence=None, version=None):
+        r = {"assignment": assignment}
+        if version is not None:
+            r["keySet"] = {"version": version, "digest": zero}
+        if sequence is not None:
+            r["envelope"] = {"sequence": sequence, "digest": zero}
+        return r
+
+    def on(assignment, env, states, ks=None):
+        inp = verify_input(env, ks, assignment=assignment)
+        inp["states"] = states
+        return inp
+
+    add("HCS-0007-R031", "valid", "new-assignment-lower-sequence", "The host accepted sequence 40 on A and is now assigned to B, for which it has no state: B's sequence 3 is accepted.", "distribution",
+        on(b, envelope(sequence=3, binding=b), [record(a, sequence=40)]), ok())
+    add("HCS-0007-R031", "valid", "return-to-assignment-higher-sequence", "Back on A after a stay on B: A's sequence 41 follows A's 40, whatever B's state is.", "distribution",
+        on(a, envelope(sequence=41), [record(a, sequence=40), record(b, sequence=90)]), ok())
+    add("HCS-0007-R031", "valid", "key-set-version-of-other-assignment-ignored", "Key set version 9 was accepted on A; on B, with no key set state, version 3 is accepted.", "distribution",
+        on(b, envelope(binding=b), [record(a, sequence=50, version=9)]), ok())
+    add("HCS-0007-R031", "invalid", "rollback-within-assignment", "B is recorded at sequence 5 and A at 1; an envelope for B with sequence 4 rolls back B.", "distribution",
+        on(b, envelope(sequence=4, binding=b), [record(b, sequence=5), record(a, sequence=1)]), bad("rollback_rejected"))
+    add("HCS-0007-R031", "invalid", "state-of-left-assignment-kept", "A is recorded at 40; the host left A for B and came back. A's sequence 39 is a rollback: the state of A was kept.", "distribution",
+        on(a, envelope(sequence=39), [record(a, sequence=40), record(b, sequence=7)]), bad("rollback_rejected"))
+    add("HCS-0007-R031", "invalid", "key-set-rollback-within-assignment", "B is recorded at key set version 5 and A at version 1; key set version 3 on B rolls back B.", "distribution",
+        on(b, envelope(binding=b), [record(b, version=5), record(a, version=1)]), bad("rollback_rejected"))
 
 
 def render(case):

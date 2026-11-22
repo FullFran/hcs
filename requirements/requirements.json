@@ -597,6 +597,13 @@
       "source": "spec/HCS-0007-signed-catalog.md"
     },
     {
+      "id": "HCS-0007-R030",
+      "document": "HCS-0007",
+      "keyword": "MUST",
+      "text": "A host MUST count a signature toward the threshold of R005 only when the signing key has no `binding` member, or every member of that `binding` appears in the envelope's `binding` with an equal value.",
+      "source": "spec/HCS-0007-signed-catalog.md"
+    },
+    {
       "id": "HCS-0007-R011",
       "document": "HCS-0007",
       "keyword": "MUST NOT",
@@ -650,6 +657,20 @@
       "document": "HCS-0007",
       "keyword": "MUST",
       "text": "A host MUST record an envelope's `sequence` and content digest as accepted only after every check of section 5.2 has passed, and MUST keep the accepted state of envelopes and key sets across restarts.",
+      "source": "spec/HCS-0007-signed-catalog.md"
+    },
+    {
+      "id": "HCS-0007-R031",
+      "document": "HCS-0007",
+      "keyword": "MUST",
+      "text": "A host MUST keep the accepted state of section 3.3 separately for each assignment it is or was enrolled for, MUST compare an envelope's `sequence` (R008) and a key set's `version` (R012) only with the state kept for the assignment it verifies for, and MUST NOT discard the state of an assignment it has left.",
+      "source": "spec/HCS-0007-signed-catalog.md"
+    },
+    {
+      "id": "HCS-0007-R032",
+      "document": "HCS-0007",
+      "keyword": "MUST",
+      "text": "A host that changes its assignment MUST make the change as one step: after a restart at any point of the change, the host MUST use either the previous assignment with its accepted state or the new assignment with its accepted state, and MUST NOT verify an envelope against a combination of the two.",
       "source": "spec/HCS-0007-signed-catalog.md"
     },
     {
