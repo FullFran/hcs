@@ -89,6 +89,14 @@ hcs-sdk sign-catalog --catalog catalog.json --sequence 1 --expires 2026-11-13T00
 
 Limit: a bare 32-byte seed is byte-for-byte indistinguishable from a 32-byte public key, so `signing.isPrivateKeyMaterial` cannot detect it. That is why key files are PEM, which is self-describing. The guard detects PEM `PRIVATE KEY` / `ENCRYPTED PRIVATE KEY` / `OPENSSH PRIVATE KEY` blocks, a JWK with a `d` member and a PKCS#8 DER prefix of an Ed25519 key (also base64 encoded, and nested inside JSON). The CLI applies it to files that must hold public keys; hosts that ingest public keys from users can call it too. `checkKeySetShape` and `assertTrustAnchor` are unchanged. The `Signer` type still accepts a raw seed or a `KeyObject`; `signing.seedToPem` and `signing.readSignerPem` convert between a seed and the PEM key file format.
 
+### Acceptance rule (HCS-0007-R008, R012)
+
+`signing.checkEnvelopeSequence(candidate, last?)` and `signing.checkKeySetVersion(candidate, last?)` are the rule that `verifyEnvelope` and `verifyKeySet` apply, exported as pure functions for callers that do not verify: a publisher, a catalog server's store, an operator tool. They compare two accepted states (`{ sequence, digest }` or `{ version, digest }`) and return `{ ok: true, changed }` or `{ ok: false, error }`. A lower number, or the same number with another digest, is `rollback_rejected` with `HCS-0007-R008` or `HCS-0007-R012`. An identical replay is `{ ok: true, changed: false }`, so a retried import is idempotent. With no `last`, the first candidate is accepted with `changed: true`.
+
+`signing.nextSequence(issued, requested?)` is the publisher side: it returns one above the highest issued sequence (1 when none), or `requested` when it is above every issued one, and throws a `signing.SigningRejection` (`code: 'rollback_rejected'`, `requirement: 'HCS-0007-R008'`) when `requested` is at or below the highest, so a sequence is never reused. A value that is not an integer from 1 to 2^53 - 1 throws a `TypeError`.
+
+The functions do no I/O and take no lock. The caller owns persistence and concurrency (a server wraps the check and the write in its own lock) and decides which states to compare (per assignment or per binding).
+
 ## Projection (HCS-0008)
 
 `projection.projectGeneration(generation, adapter, hostLock, options)` turns one generation into a launch plan for one engine run and a report. The SDK holds only the engine-neutral part; each engine (appendix A of HCS-0008 lists observed mappings) gets an `EngineAdapter` maintained outside the SDK:
