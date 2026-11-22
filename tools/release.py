@@ -17,6 +17,7 @@ import hashlib
 import json
 import pathlib
 import re
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -122,6 +123,15 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def tool_version(tool):
+    """The version the toolchain reports (`v24.14.1` -> `24.14.1`); fails when the tool is missing."""
+    try:
+        out = subprocess.run([tool, "--version"], capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError) as error:
+        fail(f"cannot read the {tool} version: {error}")
+    return out.strip().lstrip("v")
+
+
 def notes(version, dist, ref):
     check(version)
     dist = pathlib.Path(dist)
@@ -135,6 +145,7 @@ def notes(version, dist, ref):
     missing = [str(p) for p in files.values() if not p.is_file()]
     if missing:
         fail("missing build outputs:\n  " + "\n  ".join(missing))
+    node, npm = tool_version("node"), tool_version("npm")
     count = sum(1 for p in (dist / f"hcs-{version}").rglob("*") if p.is_file())
     rows = "\n".join(f"| `{name}` | `{sha256(path)}` |" for name, path in files.items())
     generated = f"""## Artefact
@@ -144,8 +155,9 @@ def notes(version, dist, ref):
 {rows}
 
 Built with `python3 tools/build_release.py --version {version} --ref {ref[:7]}`
-(`--check`: byte-identical across two builds; {count} files). The SDK tarball is `npm run build` and
-`npm pack` of `sdk/ts` at the tag.
+(`--check`: byte-identical across two builds; {count} files). The SDK tarball is `npm ci`,
+`npm run build` and `npm pack` of `sdk/ts` at the tag, with Node {node} and npm {npm}; the same
+versions rebuild it byte for byte.
 """
     install = f"""## Install the SDK
 
