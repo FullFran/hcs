@@ -1,0 +1,30 @@
+{
+  "description": "Two servers whose engine names differ are both projected.",
+  "requirements": [
+    "HCS-0008-R040"
+  ],
+  "level": "host",
+  "input": {
+    "namingRule": "<server>_<tool>",
+    "servers": [
+      {
+        "entry": "dev.example.files",
+        "server": "files",
+        "tools": [
+          "x_list"
+        ]
+      },
+      {
+        "entry": "dev.example.mail",
+        "server": "mail",
+        "tools": [
+          "send"
+        ]
+      }
+    ],
+    "hostTools": []
+  },
+  "expect": {
+    "behaviour": "No two engine names are equal (files_x_list, mail_send): both entries are projected and nothing is reported."
+  }
+}

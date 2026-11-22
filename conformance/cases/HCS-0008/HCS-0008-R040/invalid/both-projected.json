@@ -1,0 +1,30 @@
+{
+  "description": "An adapter that projects both colliding entries does not conform.",
+  "requirements": [
+    "HCS-0008-R040"
+  ],
+  "level": "host",
+  "input": {
+    "namingRule": "<server>_<tool>",
+    "servers": [
+      {
+        "entry": "dev.example.files",
+        "server": "files",
+        "tools": [
+          "x_list"
+        ]
+      },
+      {
+        "entry": "dev.example.files-x",
+        "server": "files_x",
+        "tools": [
+          "list"
+        ]
+      }
+    ],
+    "hostTools": []
+  },
+  "expect": {
+    "behaviour": "The adapter projects both entries, which share files_x_list, and reports nothing."
+  }
+}

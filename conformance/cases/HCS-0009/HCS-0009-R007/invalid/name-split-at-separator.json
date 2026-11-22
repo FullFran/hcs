@@ -1,0 +1,27 @@
+{
+  "description": "A host that parses the engine name cannot recover the pair even when nothing collides.",
+  "requirements": [
+    "HCS-0009-R007"
+  ],
+  "level": "host",
+  "input": {
+    "namingRule": "<server>_<tool>",
+    "servers": [
+      {
+        "server": "file_store",
+        "tools": [
+          "list"
+        ],
+        "declared": {
+          "list": {
+            "effect": "read"
+          }
+        }
+      }
+    ],
+    "call": "file_store_list"
+  },
+  "expect": {
+    "behaviour": "The host splits file_store_list at the first underscore, looks for server file and tool store_list, finds no declaration and presents the tool under R004 instead of the read annotations the package declared. A split at the last underscore fails the same way."
+  }
+}

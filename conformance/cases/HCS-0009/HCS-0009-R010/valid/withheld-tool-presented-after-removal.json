@@ -1,0 +1,47 @@
+{
+  "description": "A withheld tool is presented once its engine name is free again.",
+  "requirements": [
+    "HCS-0009-R010"
+  ],
+  "level": "host",
+  "input": {
+    "namingRule": "<server>_<tool>",
+    "servers": [
+      {
+        "server": "files",
+        "lists": [
+          [
+            "x_list"
+          ],
+          []
+        ],
+        "declared": {
+          "x_list": {
+            "effect": "read"
+          }
+        }
+      },
+      {
+        "server": "files_x",
+        "lists": [
+          [],
+          [
+            "list"
+          ],
+          [
+            "list"
+          ]
+        ],
+        "declared": {
+          "list": {
+            "effect": "destructive"
+          }
+        }
+      }
+    ],
+    "afterListChanged": "files, then files_x"
+  },
+  "expect": {
+    "behaviour": "While files lists x_list, the host withholds the list tool of files_x and reports it. After files lists nothing and files_x lists list again, the host presents it as files_x_list with the annotations of its destructive declaration."
+  }
+}

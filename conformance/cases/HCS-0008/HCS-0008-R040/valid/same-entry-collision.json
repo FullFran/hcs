@@ -1,0 +1,24 @@
+{
+  "description": "An entry with two tools that share an engine name is not projected and is reported unsupported_contribution.",
+  "requirements": [
+    "HCS-0008-R040"
+  ],
+  "level": "host",
+  "input": {
+    "namingRule": "mcp__<server>__<tool>, characters outside [A-Za-z0-9_] replaced by _",
+    "servers": [
+      {
+        "entry": "dev.example.s",
+        "server": "s",
+        "tools": [
+          "a-b",
+          "a_b"
+        ]
+      }
+    ],
+    "hostTools": []
+  },
+  "expect": {
+    "behaviour": "Both tools would be named mcp__s__a_b. The adapter does not project dev.example.s and reports unsupported_contribution for it."
+  }
+}

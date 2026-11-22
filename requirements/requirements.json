@@ -814,6 +814,13 @@
       "source": "spec/HCS-0008-host-adapter.md"
     },
     {
+      "id": "HCS-0008-R040",
+      "document": "HCS-0008",
+      "keyword": "MUST",
+      "text": "The name an engine gives to a tool of a projected `mcp-server` entry, under the engine's naming rule, is an engine-level name for R006. When two or more entries would give a tool the same name, R006 applies: an adapter MUST project none of them and report `ambiguous_provider` for each. When an entry's tool would take the name of a tool the host provides, or two tools of the same entry would share a name, an adapter MUST NOT project the entry and MUST report `unsupported_contribution` for it. An entry that collides both with another entry and with a host tool is reported `ambiguous_provider`.",
+      "source": "spec/HCS-0008-host-adapter.md"
+    },
+    {
       "id": "HCS-0008-R021",
       "document": "HCS-0008",
       "keyword": "MUST",
@@ -1021,6 +1028,34 @@
       "document": "HCS-0009",
       "keyword": "MUST NOT",
       "text": "A host MUST NOT take the effect of a tool from the annotations the server reports for itself, and MUST replace them with the annotations of R003 or R004 when it presents the tool.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R007",
+      "document": "HCS-0009",
+      "keyword": "MUST",
+      "text": "A host MUST look up a tool's declaration by the projected `mcp-server` contribution that listed the tool and the tool name that server reports. It MUST NOT recover the server or the tool by parsing a name that an engine built.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R008",
+      "document": "HCS-0009",
+      "keyword": "MUST",
+      "text": "A host MUST apply R003 and R004 to every `tools/list` result of a projected server, including results after a `notifications/tools/list_changed`, and MUST NOT keep the annotations it presented for a name across a list in which that name is absent.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R009",
+      "document": "HCS-0009",
+      "keyword": "SHOULD",
+      "text": "A host SHOULD report, to its operator, the names a server lists that its package does not declare, so the publisher can declare them.",
+      "source": "spec/HCS-0009-tool-surface.md"
+    },
+    {
+      "id": "HCS-0009-R010",
+      "document": "HCS-0009",
+      "keyword": "MUST NOT",
+      "text": "When a later `tools/list` result of a projected server would give a tool an engine name already used by a tool of another projected server, by a tool the host provides, or by another tool of the same list, the host MUST NOT present the tools involved from that list and MUST report them to the operator. The map from engine name to (contribution, tool name) stays injective, and the tools of other servers presented earlier keep their names.",
       "source": "spec/HCS-0009-tool-surface.md"
     },
     {

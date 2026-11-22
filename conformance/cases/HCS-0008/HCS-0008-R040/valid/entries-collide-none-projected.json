@@ -1,0 +1,30 @@
+{
+  "description": "Entries whose tools collide are an R006 collision: none is projected and each is reported ambiguous_provider.",
+  "requirements": [
+    "HCS-0008-R040"
+  ],
+  "level": "host",
+  "input": {
+    "namingRule": "<server>_<tool>",
+    "servers": [
+      {
+        "entry": "dev.example.files",
+        "server": "files",
+        "tools": [
+          "x_list"
+        ]
+      },
+      {
+        "entry": "dev.example.files-x",
+        "server": "files_x",
+        "tools": [
+          "list"
+        ]
+      }
+    ],
+    "hostTools": []
+  },
+  "expect": {
+    "behaviour": "Both tools would be named files_x_list. The adapter projects neither entry and reports ambiguous_provider for dev.example.files and for dev.example.files-x, whatever their order in the generation."
+  }
+}
