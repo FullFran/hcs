@@ -1,0 +1,13 @@
+{
+  "description": "A restart after the switch is recorded resumes on the new assignment with its own state.",
+  "requirements": [
+    "HCS-0007-R032"
+  ],
+  "level": "host",
+  "input": {
+    "scenario": "Assigned to A with accepted envelope sequence 40 for A; accepted envelope sequence 7 for B from an earlier stay on B. The host is told to switch to B. Kill the host right after the record that names the current assignment is replaced; restart it and deliver B's envelope 6, then B's envelope 8."
+  },
+  "expect": {
+    "behaviour": "After the restart the host is on B: B's envelope 6 is refused with rollback_rejected against B's state (7), and B's envelope 8 is accepted."
+  }
+}

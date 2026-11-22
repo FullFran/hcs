@@ -5,9 +5,9 @@ export { ENVELOPE_PAYLOAD_TYPE, KEY_SET_PAYLOAD_TYPE, type PayloadType, pae, uns
 export { ed25519PublicKey, ed25519Sign, ed25519Verify, generateKeyPair } from './ed25519.ts';
 export { checkEnvelopeShape, checkKeySetShape, readEnvelope, readKeySet, isCanonicalValue, parseInstant } from './shape.ts';
 export {
-  verifyKeySet, verifyEnvelope, verifySignedCatalog,
+  verifyKeySet, verifyEnvelope, verifySignedCatalog, bindingCovers,
   type VerifiedKeySet, type CatalogValidator, type KeySetVerification, type EnvelopeVerification, type SignedCatalogVerification,
 } from './verify.ts';
 export { checkEnvelopeSequence, checkKeySetVersion, nextSequence, SigningRejection, type Acceptance } from './acceptance.ts';
-export { signDocument, signEnvelope, signKeySet, createEnvelope } from './sign.ts';
+export { signDocument, signEnvelope, signKeySet, createEnvelope, createKeySet } from './sign.ts';
 export { isPrivateKeyMaterial, seedToPem, readSignerPem } from './keys.ts';

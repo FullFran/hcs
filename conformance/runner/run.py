@@ -325,6 +325,26 @@ def parse_received(data):
         return None, [err("manifest_invalid")], None
 
 
+def state_for(inp, assignment):
+    """(lastKeySet, lastAccepted) for the assignment verified (HCS-0007-R031).
+
+    With `states`, a list of {assignment, keySet?, envelope?} records, the record whose assignment equals
+    the verified one (same member names, same values, R006) is used, and no record means no state; the
+    records of other assignments are never compared. Without it, `lastKeySet` and `lastAccepted` apply.
+    """
+    if "states" not in inp:
+        return inp.get("lastKeySet"), inp.get("lastAccepted")
+    if "lastKeySet" in inp or "lastAccepted" in inp:
+        raise ValueError("states replaces lastKeySet and lastAccepted; a case gives one or the other")
+    if assignment is None:
+        raise ValueError("states needs the assignment the host verifies for")
+    records = [r for r in inp["states"] if r["assignment"] == assignment]
+    if len(records) > 1:
+        raise ValueError("states lists the same assignment twice")
+    record = records[0] if records else {}
+    return record.get("keySet"), record.get("envelope")
+
+
 def run_distribution(inp, document=None):
     """Returns (errors, signing input or None). See conformance/README.md for the input shapes.
 
@@ -349,7 +369,8 @@ def run_distribution(inp, document=None):
     errors = check_document(KEY_SET, key_set, limits, violation)
     if errors:
         return errors, None
-    code = distro1.check_key_set(key_set, anchor, inp.get("lastKeySet"), now)
+    last_key_set, last_accepted = state_for(inp, inp.get("assignment"))
+    code = distro1.check_key_set(key_set, anchor, last_key_set, now)
     if code or check == "key-set":
         return ([err(code)] if code else []), None
     envelope, violation = inp.get("envelope"), None
@@ -360,7 +381,7 @@ def run_distribution(inp, document=None):
     errors = check_document(ENVELOPE, envelope, limits, violation)
     if errors:
         return errors, None
-    code = distro1.check_envelope(envelope, key_set, inp["assignment"], inp.get("lastAccepted"), now)
+    code = distro1.check_envelope(envelope, key_set, inp["assignment"], last_accepted, now)
     if code:
         return [err(code)], None
     return check_catalog(envelope["catalog"]), None

@@ -80,8 +80,18 @@ function sameBinding(a: Record<string, string>, b: Record<string, string>): bool
 }
 
 /**
- * Verifies an envelope per HCS-0007 section 5.2: (1) version and shape, (2) signatures,
- * (3) binding, (4) expiry, (5) sequence, (6) the catalog via `validateCatalog` (HCS-0001).
+ * HCS-0007-R030: true when a key with `scope` as its `binding` counts for an envelope with `binding`:
+ * no scope, or every member of the scope is an own member of `binding` with an equal value. Equality
+ * only, no patterns. Own-property checks, so an inherited name such as `constructor` never matches.
+ */
+export function bindingCovers(scope: Readonly<Record<string, string>> | undefined, binding: Readonly<Record<string, string>>): boolean {
+  if (scope === undefined) return true;
+  return Object.keys(scope).every(k => Object.hasOwn(binding, k) && binding[k] === scope[k]);
+}
+
+/**
+ * Verifies an envelope per HCS-0007 section 5.2: (1) version and shape, (2) signatures (R005, with
+ * the key scope of R030), (3) binding, (4) expiry, (5) sequence, (6) the catalog via `validateCatalog` (HCS-0001).
  */
 export function verifyEnvelope(envelope: unknown, opts: {
   keySet: VerifiedKeySet; assignment: Record<string, string>; lastAccepted?: AcceptedEnvelope; now: Clock; validateCatalog: CatalogValidator; limits?: Limits;
@@ -95,10 +105,11 @@ export function verifyEnvelope(envelope: unknown, opts: {
   if (shape.length) return { ok: false, errors: shape, step: 1 };
   const env = envelope as Envelope;
 
-  const online = new Map(opts.keySet.keys.filter(k => validAt(k, now)).map(k => [k.keyid, k.public]));
+  // R014 and R030: only keys valid now and whose binding (if any) the envelope's binding covers count.
+  const online = new Map(opts.keySet.keys.filter(k => validAt(k, now) && bindingCovers(k.binding, env.binding)).map(k => [k.keyid, k.public]));
   const threshold = opts.keySet.threshold ?? 1;
   if (countSigners(env, ENVELOPE_PAYLOAD_TYPE, online) < threshold)
-    return { ok: false, step: 2, errors: [fail('signature_invalid', `envelope lacks valid signatures from ${threshold} distinct online key(s) valid now`, 'HCS-0007-R005')] };
+    return { ok: false, step: 2, errors: [fail('signature_invalid', `envelope lacks valid signatures from ${threshold} distinct online key(s) valid now and in scope`, 'HCS-0007-R005')] };
 
   if (!sameBinding(env.binding, opts.assignment))
     return { ok: false, step: 3, errors: [fail('permission_denied', 'envelope binding differs from the host assignment', 'HCS-0007-R006')] };
@@ -127,7 +138,8 @@ export type SignedCatalogVerification =
 
 /**
  * Verifies the key set first, then the envelope with it. The caller records both accepted states
- * only when `ok` is true (R015).
+ * only when `ok` is true (R015). `lastKeySet` and `lastAccepted` MUST be the accepted state kept for
+ * `assignment`, never the state of another assignment (R031); `sync.assignmentScope` names one.
  */
 export function verifySignedCatalog(input: {
   trustAnchor: TrustAnchor; keySet: unknown; lastKeySet?: AcceptedKeySet;
@@ -140,3 +152,4 @@ export function verifySignedCatalog(input: {
   if (!env.ok) return { ok: false, stage: 'envelope', errors: env.errors };
   return { ok: true, catalog: env.catalog, keySet: { verified: ks.keySet, accepted: ks.accepted }, envelope: { accepted: env.accepted } };
 }
+

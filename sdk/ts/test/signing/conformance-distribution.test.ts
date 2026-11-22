@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkEnvelopeShape, checkKeySetShape, readEnvelope, readKeySet, signingInput, CanonicalError, verifyKeySet, verifySignedCatalog } from '../../src/signing/index.ts';
 import { readCatalog } from '../../src/catalog.ts';
+import { assignmentScope } from '../../src/sync/index.ts';
 
 const CASES = fileURLToPath(new URL('../../../../conformance/cases/', import.meta.url));
 const SIGNED = 'urn:hcs:schema:hcs-0007:signed-catalog:0.1';
@@ -18,6 +19,16 @@ const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }
   .flatMap(d => d.isDirectory() ? walk(join(dir, d.name)) : d.name.endsWith('.json') ? [join(dir, d.name)] : []);
 const norm = (errors: Err[]) => errors.map(e => JSON.stringify({ code: e.code, ...(e.entry ? { entry: e.entry } : {}), ...(e.capability ? { capability: e.capability } : {}) })).sort();
 const validateCatalog = (c: unknown) => { const r = readCatalog(JSON.stringify(c)); return r.ok ? [] : r.errors; };
+
+// `states` (HCS-0007-R031): the record of the assignment verified gives lastKeySet and lastAccepted;
+// the records of other assignments are never compared. Records are matched through `assignmentScope`.
+function stateFor(inp: any): { lastKeySet?: unknown; lastAccepted?: unknown } {
+  if (inp.states === undefined) return { lastKeySet: inp.lastKeySet, lastAccepted: inp.lastAccepted };
+  const scope = assignmentScope(inp.assignment);
+  const records = (inp.states as any[]).filter(r => assignmentScope(r.assignment) === scope);
+  assert.ok(records.length <= 1, 'states lists the same assignment twice');
+  return { lastKeySet: records[0]?.keySet, lastAccepted: records[0]?.envelope };
+}
 
 function run(c: Case): { errors: Err[]; signing?: string } {
   let inp = c.input;
@@ -37,12 +48,13 @@ function run(c: Case): { errors: Err[]; signing?: string } {
     catch (e) { if (e instanceof CanonicalError) return { errors: [{ code: 'manifest_invalid' }] }; throw e; }
   }
   if (inp.check === 'key-set') {
-    const r = verifyKeySet(inp.keySet, { trustAnchor: inp.trustAnchor, lastAccepted: inp.lastKeySet, now: inp.now, limits: inp.limits });
+    const r = verifyKeySet(inp.keySet, { trustAnchor: inp.trustAnchor, lastAccepted: stateFor(inp).lastKeySet as any, now: inp.now, limits: inp.limits });
     return { errors: r.ok ? [] : r.errors };
   }
   if (inp.check === 'envelope') {
-    const r = verifySignedCatalog({ trustAnchor: inp.trustAnchor, keySet: inp.keySet, lastKeySet: inp.lastKeySet, envelope: inp.envelope,
-      assignment: inp.assignment, lastAccepted: inp.lastAccepted, now: inp.now, validateCatalog, limits: inp.limits });
+    const { lastKeySet, lastAccepted } = stateFor(inp) as any;
+    const r = verifySignedCatalog({ trustAnchor: inp.trustAnchor, keySet: inp.keySet, lastKeySet, envelope: inp.envelope,
+      assignment: inp.assignment, lastAccepted, now: inp.now, validateCatalog, limits: inp.limits });
     return { errors: r.ok ? [] : r.errors };
   }
   throw new Error(`unknown check ${inp.check}`);
@@ -67,5 +79,5 @@ test('HCS-0007 conformance cases', t => {
   t.diagnostic(summary);
   console.log(summary);
   assert.deepEqual(failures, []);
-  assert.ok(counts.pass >= 37 + 13 + 34, 'every distribution case and every HCS-0007 shape case ran');
+  assert.ok(counts.pass >= 37 + 13 + 34 + 3 + 9 + 6, 'every distribution case and every HCS-0007 shape case ran');
 });

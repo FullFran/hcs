@@ -48,6 +48,8 @@ The reference runner bounds total decompressed output to 256 MiB + 10,000 × 1,0
 - `key-set`: `trustAnchor`, `keySet`, optional `lastKeySet` (`{version, digest}`) and `now`.
 - `envelope`: the same plus `envelope`, `assignment` and optional `lastAccepted` (`{sequence, digest}`); the key set is verified first, then section 5.2 of HCS-0007 in order.
 
+`input.states` (optional, HCS-0007-R031) replaces `lastKeySet` and `lastAccepted` when a case states the accepted state of several assignments: a list of `{assignment, keySet?: {version, digest}, envelope?: {sequence, digest}}` records, at most one per assignment. A runner uses the record whose `assignment` equals `input.assignment` (same member names, same values, R006) as `lastKeySet` and `lastAccepted`, and no state when no record matches; it never compares with the records of other assignments. A case with `states` has `assignment` and has neither `lastKeySet` nor `lastAccepted`.
+
 `input.limits` (optional, `{maxKeys, maxSignatures}`) states the bounds a host has set on the number of keys of a key set and of items of `signatures` (HCS-0007-R023); without it no bound applies.
 
 ### Cases that carry the document as text

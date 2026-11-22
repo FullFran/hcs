@@ -7,7 +7,7 @@ import { buildPackage } from '../src/package.ts';
 import { HcsFailure } from '../src/errors.ts';
 import { activeGeneration, HostBusyError, type Activator } from '../src/host-state.ts';
 import { createEnvelope, generateKeyPair, signKeySet, type TrustAnchor } from '../src/signing/index.ts';
-import { AcceptedStateError, fileAcceptedStateStore, syncSigned, type AcceptedState, type AcceptedStateStore, type SignedSource, type SyncOptions } from '../src/sync/index.ts';
+import { AcceptedStateError, assignmentScope, fileAcceptedStateStore, syncSigned, type AcceptedState, type AcceptedStateStore, type SignedSource, type SyncOptions } from '../src/sync/index.ts';
 import { TEST_HOST } from './fixtures/host.ts';
 
 function unseal(path: string): void {
@@ -212,4 +212,32 @@ test('a concurrent second sync on the same stateDir fails with HostBusyError and
   release();
   await first;
   assert.equal(JSON.parse(readState(e.stateDir)).envelope.sequence, 42);
+}));
+
+test('assignmentScope names one accepted state per assignment (HCS-0007-R031)', () => {
+  const a = { tenant: 't-0001', channel: 'stable' };
+  assert.equal(assignmentScope(a), assignmentScope({ channel: 'stable', tenant: 't-0001' }), 'member order does not matter');
+  assert.match(assignmentScope(a), /^assignment-[0-9a-f]{64}$/);
+  const others: Record<string, string>[] = [{ tenant: 't-0001' }, { tenant: 't-0001', channel: 'beta' }, { tenant: 't-0001', channel: 'stable', profile: 'desktop' }];
+  for (const other of others)
+    assert.notEqual(assignmentScope(other), assignmentScope(a), JSON.stringify(other));
+  for (const bad of [{}, { tenant: 1 }, { Tenant: 'x' }, null, 'tenant']) assert.throws(() => assignmentScope(bad as never), TypeError, JSON.stringify(bad));
+});
+
+test('per-assignment scopes: a new assignment starts from its own state, a left one keeps its own (HCS-0007-R031)', withEnv(async e => {
+  const a = assignment, b = { ...assignment, channel: 'beta' };
+  const envelopeFor = (binding: Record<string, string>, sequence: number) => createEnvelope({
+    sequence, expires: '2026-11-13T00:00:00Z', binding,
+    catalog: { hcsVersion: '0.1', id: 'dev.test.catalog', version: String(sequence), entries: [e.entry] },
+  }, [{ keyid: 'online-1', privateKey: online.seed }]);
+  const sync = (binding: Record<string, string>, sequence: number) =>
+    syncSigned(e.options(envelopeFor(binding, sequence), { assignment: binding, scope: assignmentScope(binding), verifyOnly: true }));
+  assert.equal((await sync(a, 40)).accepted.envelope.sequence, 40);
+  assert.equal((await sync(b, 3)).accepted.envelope.sequence, 3, 'B is not compared with the state of A');
+  const err = await failure(sync(a, 39));
+  assert.equal((err as HcsFailure).errors[0].code, 'rollback_rejected', 'the state of A survived the stay on B');
+  assert.equal((await sync(a, 41)).accepted.envelope.sequence, 41);
+  const rollback = await failure(sync(b, 2));
+  assert.equal((rollback as HcsFailure).errors[0].code, 'rollback_rejected');
+  assert.deepEqual(readdirSync(join(e.stateDir, 'accepted')).sort(), [assignmentScope(a), assignmentScope(b)].map(s => `${s}.json`).sort());
 }));

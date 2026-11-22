@@ -1,7 +1,8 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { closeSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AcceptedEnvelope, AcceptedKeySet } from '../signing/index.ts';
+import { canonicalBytes, type AcceptedEnvelope, type AcceptedKeySet } from '../signing/index.ts';
+import { assertAssignment } from '../signing/shape.ts';
 
 // What a host keeps between runs (HCS-0007 section 3.3). Either part is absent until first acceptance.
 export interface AcceptedState {
@@ -10,6 +11,8 @@ export interface AcceptedState {
 }
 
 // Where accepted state lives. `scope` is an opaque string chosen by the host ("default" for one binding).
+// A host that is or was enrolled for more than one assignment keeps one scope per assignment and
+// compares only with the scope of the assignment it verifies for (HCS-0007-R031): `assignmentScope`.
 export interface AcceptedStateStore {
   read(scope: string): Promise<AcceptedState>;
   // Must be durable (survive a crash after returning) and atomic (never leave a torn record).
@@ -99,4 +102,15 @@ export function fileAcceptedStateStore(dir: string): AcceptedStateStore {
       fsyncDir(base);
     },
   };
+}
+
+/**
+ * The scope of the accepted state of one assignment (HCS-0007-R031): `assignment-` and the hex sha256
+ * of the RFC 8785 serialization of the assignment. Two assignments get the same scope exactly when
+ * they are equal as R006 defines it (same member names, same values). Throws TypeError on a value
+ * that is not a binding.
+ */
+export function assignmentScope(assignment: Readonly<Record<string, string>>): string {
+  assertAssignment(assignment);
+  return `assignment-${createHash('sha256').update(canonicalBytes(assignment)).digest('hex')}`;
 }

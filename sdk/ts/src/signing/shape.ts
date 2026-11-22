@@ -48,12 +48,15 @@ const isTimestamp = (v: unknown) => parseInstant(v) !== null;
 const isPublicKey = (v: unknown) => isObject(v) && Object.keys(v).every(k => ['keyid', 'keytype', 'public'].includes(k))
   && matches(KEYID, v.keyid) && v.keytype === 'ed25519' && matches(PUBLIC, v.public);
 
-const isOnlineKey = (v: unknown) => isObject(v)
-  && Object.entries(v).every(([k, x]) => ['keyid', 'keytype', 'public', 'notBefore', 'notAfter'].includes(k) || (X_MEMBER.test(k) && isCanonicalValue(x)))
-  && matches(KEYID, v.keyid) && v.keytype === 'ed25519' && matches(PUBLIC, v.public) && isTimestamp(v.notBefore) && isTimestamp(v.notAfter);
-
 const isBinding = (v: unknown) => isObject(v) && Object.keys(v).length >= 1
   && Object.entries(v).every(([k, x]) => BINDING_NAME.test(k) && typeof x === 'string' && [...x].length >= 1 && [...x].length <= 256);
+
+// `binding` on a key has the grammar of the envelope binding (HCS-0007 section 3.2, R030).
+const ONLINE_KEY_MEMBERS = ['keyid', 'keytype', 'public', 'notBefore', 'notAfter', 'binding'];
+const isOnlineKey = (v: unknown) => isObject(v)
+  && Object.entries(v).every(([k, x]) => ONLINE_KEY_MEMBERS.includes(k) || (X_MEMBER.test(k) && isCanonicalValue(x)))
+  && matches(KEYID, v.keyid) && v.keytype === 'ed25519' && matches(PUBLIC, v.public) && isTimestamp(v.notBefore) && isTimestamp(v.notAfter)
+  && (v.binding === undefined || isBinding(v.binding));
 
 type MemberRules = Record<string, (v: unknown) => boolean>;
 

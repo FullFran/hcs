@@ -59,7 +59,11 @@
         "keytype": { "const": "ed25519" },
         "public": { "$ref": "#/$defs/publicKey/properties/public" },
         "notBefore": { "$ref": "#/$defs/timestamp" },
-        "notAfter": { "$ref": "#/$defs/timestamp" }
+        "notAfter": { "$ref": "#/$defs/timestamp" },
+        "binding": {
+          "description": "Limits the envelopes the key counts for: its signature counts toward the threshold only when every member appears with an equal value in the envelope binding (HCS-0007-R030). Absent: unrestricted.",
+          "$ref": "#/$defs/binding"
+        }
       },
       "patternProperties": { "^x-[a-z0-9]+(-[a-z0-9]+)*$": { "$ref": "#/$defs/canonicalValue" } },
       "additionalProperties": false
@@ -111,7 +115,7 @@
       "additionalProperties": false
     },
     "acceptedState": {
-      "description": "What a host remembers about the last accepted envelope (sequence) or key set (version): the number and the sha256 digest of the canonical serialization without signatures.",
+      "description": "What a host remembers about the last accepted envelope (sequence) or key set (version) of one assignment: the number and the sha256 digest of the canonical serialization without signatures. A host keeps one per assignment (HCS-0007-R031); how it stores several is host-internal.",
       "type": "object",
       "required": ["digest"],
       "properties": {

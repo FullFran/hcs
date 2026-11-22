@@ -20,7 +20,11 @@ export interface SigningError {
 
 export interface Signature { keyid: string; sig: string }
 export interface PublicKey { keyid: string; keytype: 'ed25519'; public: string }
-export interface OnlineKey extends PublicKey { notBefore: string; notAfter: string; [extension: `x-${string}`]: unknown }
+/**
+ * An online key. `binding` (HCS-0007-R030) limits the envelopes the key counts for: only those whose
+ * `binding` has every member of it with an equal value. A key without it is unrestricted.
+ */
+export interface OnlineKey extends PublicKey { notBefore: string; notAfter: string; binding?: Record<string, string>; [extension: `x-${string}`]: unknown }
 
 export interface TrustAnchor { keys: PublicKey[]; threshold?: number }
 

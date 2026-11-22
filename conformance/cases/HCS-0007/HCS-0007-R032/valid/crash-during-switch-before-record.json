@@ -1,0 +1,13 @@
+{
+  "description": "A restart before the switch is recorded resumes on the previous assignment with its own state.",
+  "requirements": [
+    "HCS-0007-R032"
+  ],
+  "level": "host",
+  "input": {
+    "scenario": "Assigned to A with accepted envelope sequence 40 for A; accepted envelope sequence 7 for B from an earlier stay on B. The host is told to switch to B. Kill the host after it has prepared the switch and before the record that names the current assignment is replaced; restart it and deliver A's envelope 41, then B's envelope 6."
+  },
+  "expect": {
+    "behaviour": "After the restart the host is on A: A's envelope 41 is accepted against A's state (40), and B's envelope 6 is refused with permission_denied because the host is not assigned to B."
+  }
+}

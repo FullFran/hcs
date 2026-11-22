@@ -2,8 +2,8 @@
 // sign the same document in turn; Ed25519 is deterministic, so re-signing yields the same bytes.
 import { ed25519Sign } from './ed25519.ts';
 import { ENVELOPE_PAYLOAD_TYPE, KEY_SET_PAYLOAD_TYPE, signingInput } from './pae.ts';
-import { checkEnvelopeShape } from './shape.ts';
-import { HCS_VERSION, type Envelope, type KeySet, type Signature, type Signer } from './types.ts';
+import { checkEnvelopeShape, checkKeySetShape } from './shape.ts';
+import { HCS_VERSION, type Envelope, type KeySet, type OnlineKey, type Signature, type Signer } from './types.ts';
 
 /** Returns a copy of `doc` with one signature per signer appended. Throws CanonicalError. */
 export function signDocument<T extends object>(payloadType: string, doc: T, signers: readonly Signer[]): T & { signatures: Signature[] } {
@@ -39,4 +39,24 @@ export function createEnvelope(fields: {
   const errors = checkEnvelopeShape(envelope);
   if (errors.length) throw new TypeError(errors[0].message);
   return signEnvelope(envelope, signers);
+}
+
+/**
+ * Builds an `hcsVersion` 0.1 key set, checks its shape and signs it with root keys. A key may carry
+ * `binding` (HCS-0007-R030). Throws TypeError on an invalid key set.
+ */
+export function createKeySet(fields: {
+  version: number; threshold?: number; keys: readonly OnlineKey[];
+  extensions?: Record<`x-${string}`, unknown>;
+}, rootSigners: readonly Signer[]): KeySet & { signatures: Signature[] } {
+  const keySet = {
+    ...fields.extensions,
+    hcsVersion: HCS_VERSION,
+    version: fields.version,
+    ...(fields.threshold === undefined ? {} : { threshold: fields.threshold }),
+    keys: fields.keys.map(k => ({ ...k })),
+  } as KeySet;
+  const errors = checkKeySetShape(keySet);
+  if (errors.length) throw new TypeError(errors[0].message);
+  return signKeySet(keySet, rootSigners);
 }

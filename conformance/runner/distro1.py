@@ -279,9 +279,15 @@ def check_key_set(key_set, anchor, last, now):
     return None
 
 
+def binding_covers(scope, binding):
+    """HCS-0007-R030: no scope, or every member of the scope is in binding with an equal value."""
+    return scope is None or all(name in binding and binding[name] == value for name, value in scope.items())
+
+
 def check_envelope(envelope, key_set, assignment, last, now):
     """Steps 2 to 5 of HCS-0007 section 5.2; returns an error code or None."""
-    online = {k["keyid"]: _b64(k["public"]) for k in key_set["keys"] if key_valid_at(k, now)}
+    online = {k["keyid"]: _b64(k["public"]) for k in key_set["keys"]
+              if key_valid_at(k, now) and binding_covers(k.get("binding"), envelope["binding"])}
     if not _counting_keys(envelope, ENVELOPE_PAYLOAD_TYPE, online, key_set.get("threshold", 1)):
         return "signature_invalid"
     if envelope["binding"] != assignment:
