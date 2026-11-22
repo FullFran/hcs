@@ -1,7 +1,9 @@
 import { readCatalog } from '../catalog.ts';
 import { HcsFailure, hcsError, type HcsError, type HcsErrorCode } from '../errors.ts';
 import { checkDetailPrefix, DEFAULT_DETAIL_PREFIX } from '../extensions.ts';
-import { applyDesiredSetLocked, withHostLock, type ApplyOptions, type ApplyResult } from '../host-state.ts';
+import '../host-state.ts'; // registers the lock internals used below
+import type { ApplyOptions, ApplyResult } from '../host-state.ts';
+import { hostInternals } from '../host-state-internal.ts';
 import { canonicalBytes, verifySignedCatalog, type AcceptedEnvelope, type AcceptedKeySet, type Clock, type TrustAnchor } from '../signing/index.ts';
 import { fileAcceptedStateStore, type AcceptedState, type AcceptedStateStore } from './state.ts';
 
@@ -49,7 +51,7 @@ const same = (a: AcceptedState, b: AcceptedState): boolean =>
 // this lock; its own writers must be serialized by the host.
 export async function syncSigned(options: SyncOptions): Promise<SyncResult> {
   checkDetailPrefix(options.apply.detailPrefix ?? DEFAULT_DETAIL_PREFIX);
-  return withHostLock(options.apply.stateDir, () => syncLocked(options));
+  return hostInternals().withHostLock(options.apply.stateDir, () => syncLocked(options));
 }
 
 async function syncLocked(options: SyncOptions): Promise<SyncResult> {
@@ -91,6 +93,6 @@ async function syncLocked(options: SyncOptions): Promise<SyncResult> {
   if (!same(state, accepted)) await store.write(scope, accepted);
 
   if (options.verifyOnly) return { applied: false, accepted };
-  const apply = await applyDesiredSetLocked(canonicalBytes(verified.catalog), options.apply);
+  const apply = await hostInternals().applyDesiredSetLocked(canonicalBytes(verified.catalog), options.apply);
   return { applied: true, apply, accepted };
 }

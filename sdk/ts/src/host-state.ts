@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { readCatalog, type CatalogEntry } from './catalog.ts';
 import { HcsFailure, hcsError, type HcsError } from './errors.ts';
 import { checkDetailPrefix, DEFAULT_DETAIL_PREFIX } from './extensions.ts';
+import { registerHostInternals } from './host-state-internal.ts';
 import { grantAuthorizer } from './grants.ts';
 import type { HostProfile } from './host.ts';
 import { canTransition, type EntryState, type EntryStatus } from './lifecycle.ts';
@@ -303,15 +304,18 @@ export async function applyDesiredSet(catalogBytes: Uint8Array | string, options
 }
 
 // Runs `fn` while holding the host lock for `stateDir`; a busy lock throws HostBusyError.
-export async function withHostLock<T>(stateDir: string, fn: () => Promise<T>): Promise<T> {
+// Not exported: reachable only through `host-state-internal.ts`, which the package root does not re-export.
+async function withHostLock<T>(stateDir: string, fn: () => Promise<T>): Promise<T> {
   const release = acquireLock(stateDir);
   try { return await fn(); } finally { release(); }
 }
 
 // The body of `applyDesiredSet`. The caller MUST hold the host lock for `options.stateDir` (`withHostLock`).
-export function applyDesiredSetLocked(catalogBytes: Uint8Array | string, options: ApplyOptions): Promise<ApplyResult> {
+function applyDesiredSetLocked(catalogBytes: Uint8Array | string, options: ApplyOptions): Promise<ApplyResult> {
   return transition(catalogBytes, options);
 }
+
+registerHostInternals({ withHostLock, applyDesiredSetLocked });
 
 async function transition(catalogBytes: Uint8Array | string, options: ApplyOptions): Promise<ApplyResult> {
   const { stateDir } = options;
