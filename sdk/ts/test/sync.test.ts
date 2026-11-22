@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildPackage } from '../src/package.ts';
 import { HcsFailure } from '../src/errors.ts';
-import { activeGeneration, type Activator } from '../src/host-state.ts';
+import { activeGeneration, HostBusyError, type Activator } from '../src/host-state.ts';
 import { createEnvelope, generateKeyPair, signKeySet, type TrustAnchor } from '../src/signing/index.ts';
 import { AcceptedStateError, fileAcceptedStateStore, syncSigned, type AcceptedState, type AcceptedStateStore, type SignedSource, type SyncOptions } from '../src/sync/index.ts';
 import { TEST_HOST } from './fixtures/host.ts';
@@ -196,4 +196,20 @@ test('a source failure propagates and writes nothing', withEnv(async e => {
   const source: SignedSource = { keySet: async () => { throw new Error('unreachable'); }, envelope: async () => ({}) };
   await assert.rejects(syncSigned(e.options(null, { source })), /unreachable/);
   assert.equal(existsSync(stateFile(e.stateDir)), false);
+}));
+
+test('a concurrent second sync on the same stateDir fails with HostBusyError and changes no state', withEnv(async e => {
+  let release!: () => void;
+  const gate = new Promise<void>(r => { release = r; });
+  let entered!: () => void;
+  const inside = new Promise<void>(r => { entered = r; });
+  const slow: SignedSource = { keySet: async () => { entered(); await gate; return keySet; }, envelope: async () => e.publish(42) };
+  const first = syncSigned(e.options(null, { source: slow }));
+  await inside;
+  const err = await failure(syncSigned(e.options(e.publish(43))));
+  assert.ok(err instanceof HostBusyError);
+  assert.equal(existsSync(stateFile(e.stateDir)), false);
+  release();
+  await first;
+  assert.equal(JSON.parse(readState(e.stateDir)).envelope.sequence, 42);
 }));

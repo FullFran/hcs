@@ -122,7 +122,7 @@ const result = await sync.syncSigned({
 - The state is written after verification and before apply, and it stays written when apply fails: an older envelope stays rejected and the same envelope can be retried.
 - A state file that exists but cannot be read or validated throws `AcceptedStateError` before anything is fetched or applied; it is never treated as an empty state, because that would disable rollback protection.
 - An unreachable source throws an ordinary error and writes nothing. `verifyOnly: true` records the state and skips apply.
-- `syncSigned` does not take the host lock for the accepted-state read-verify-write; run one syncer per `scope`. HTTP, polling, trust-anchor management and multi-binding semantics are out of scope.
+- `syncSigned` holds the host lock for `apply.stateDir` for the whole call, including `verifyOnly`; a concurrent call on the same directory throws `HostBusyError`. A custom `store` outside `apply.stateDir` is not covered by that lock. HTTP, polling, trust-anchor management and multi-binding semantics are out of scope.
 
 ## Projection (HCS-0008)
 

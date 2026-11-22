@@ -293,10 +293,24 @@ const fresh = (e: CatalogEntry): EntryStatus => ({ entry: e.id, version: e.versi
 // Moves the host from its active desired set to the set in `catalogBytes` as one transition
 // (HCS-0004-R003): the new set is prepared as a new immutable generation, the pointer switches in
 // one step, and any entry failing to reach `active` rolls every entry back.
+//
+// This function does not verify signatures: `catalogBytes` is trusted as given. A host that consumes
+// a signed catalog (HCS-0007, DISTRO-1) reaches it through `sync.syncSigned` or `signing.verifySignedCatalog`;
+// calling it directly skips the rollback and freeze checks.
 export async function applyDesiredSet(catalogBytes: Uint8Array | string, options: ApplyOptions): Promise<ApplyResult> {
   checkDetailPrefix(options.detailPrefix ?? DEFAULT_DETAIL_PREFIX);
-  const release = acquireLock(options.stateDir);
-  try { return await transition(catalogBytes, options); } finally { release(); }
+  return withHostLock(options.stateDir, () => applyDesiredSetLocked(catalogBytes, options));
+}
+
+// Runs `fn` while holding the host lock for `stateDir`; a busy lock throws HostBusyError.
+export async function withHostLock<T>(stateDir: string, fn: () => Promise<T>): Promise<T> {
+  const release = acquireLock(stateDir);
+  try { return await fn(); } finally { release(); }
+}
+
+// The body of `applyDesiredSet`. The caller MUST hold the host lock for `options.stateDir` (`withHostLock`).
+export function applyDesiredSetLocked(catalogBytes: Uint8Array | string, options: ApplyOptions): Promise<ApplyResult> {
+  return transition(catalogBytes, options);
 }
 
 async function transition(catalogBytes: Uint8Array | string, options: ApplyOptions): Promise<ApplyResult> {

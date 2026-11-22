@@ -1,7 +1,7 @@
 import { readCatalog } from '../catalog.ts';
 import { HcsFailure, hcsError, type HcsError, type HcsErrorCode } from '../errors.ts';
 import { checkDetailPrefix, DEFAULT_DETAIL_PREFIX } from '../extensions.ts';
-import { applyDesiredSet, type ApplyOptions, type ApplyResult } from '../host-state.ts';
+import { applyDesiredSetLocked, withHostLock, type ApplyOptions, type ApplyResult } from '../host-state.ts';
 import { canonicalBytes, verifySignedCatalog, type AcceptedEnvelope, type AcceptedKeySet, type Clock, type TrustAnchor } from '../signing/index.ts';
 import { fileAcceptedStateStore, type AcceptedState, type AcceptedStateStore } from './state.ts';
 
@@ -43,9 +43,16 @@ const same = (a: AcceptedState, b: AcceptedState): boolean =>
 // sequence or version itself, so the acceptance rule keeps a single definition (HCS-0007-R008, R012).
 // A corrupt state file throws `AcceptedStateError` before anything is fetched or applied.
 //
-// Concurrency: this function does not take the host lock, so the read-verify-write of the accepted
-// state is not exclusive across processes. Run one syncer per `scope`.
+// Concurrency: the host lock for `apply.stateDir` is held for the whole call (read state, fetch,
+// verify, record, apply), including with `verifyOnly`, so two syncers cannot interleave. A busy lock
+// throws `HostBusyError`. A custom `store` that lives outside `apply.stateDir` is not covered by
+// this lock; its own writers must be serialized by the host.
 export async function syncSigned(options: SyncOptions): Promise<SyncResult> {
+  checkDetailPrefix(options.apply.detailPrefix ?? DEFAULT_DETAIL_PREFIX);
+  return withHostLock(options.apply.stateDir, () => syncLocked(options));
+}
+
+async function syncLocked(options: SyncOptions): Promise<SyncResult> {
   const prefix = options.apply.detailPrefix ?? DEFAULT_DETAIL_PREFIX;
   checkDetailPrefix(prefix);
   const scope = options.scope ?? 'default';
@@ -84,6 +91,6 @@ export async function syncSigned(options: SyncOptions): Promise<SyncResult> {
   if (!same(state, accepted)) await store.write(scope, accepted);
 
   if (options.verifyOnly) return { applied: false, accepted };
-  const apply = await applyDesiredSet(canonicalBytes(verified.catalog), options.apply);
+  const apply = await applyDesiredSetLocked(canonicalBytes(verified.catalog), options.apply);
   return { applied: true, apply, accepted };
 }
