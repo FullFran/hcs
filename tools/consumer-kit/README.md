@@ -6,7 +6,7 @@ Three steps. `hcs_kit.py` is called `kit` below.
 
 ## 1. Pin and vendor a release
 
-Take the version and the tarball digest from the release page (the `.sha256` asset, or the release notes in [docs/releases/](../../docs/releases/)):
+Take the version and the tarball digest from the GitHub release page: the `hcs-<version>.tar.gz.sha256` asset, or the sha256 table in the release body. The notes in [docs/releases/](../../docs/releases/) hold only the prose and carry no digests from draft.12 on:
 
 ```sh
 python3 kit/hcs_kit.py sync 0.1.0-draft.7 <sha256 of hcs-0.1.0-draft.7.tar.gz>

@@ -94,14 +94,16 @@ The archive holds `spec/`, `schemas/`, `conformance/` (cases, `case.schema.json`
 profiles, reference runner), `requirements/requirements.json`, `skills/`, `LICENSE`,
 `index.json` and `SHA256SUMS` (one line per file, `sha256sum -c` format).
 
-1. **Pin the tag and its digest.** Record the version and the tarball sha256
-   from the release notes in your repository (for example in your sync script),
-   so a changed download fails instead of being accepted.
+1. **Pin the tag and its digest.** Record the version and the tarball sha256 in
+   your repository (for example in your sync script), so a changed download fails
+   instead of being accepted. Take the sha256 from the GitHub release page (the
+   `.sha256` asset, or the table in the release body), not from `docs/releases/`,
+   which holds only the prose.
 2. **Vendor and verify.**
 
    ```sh
    V=0.1.0-draft.3
-   EXPECTED=<tarball sha256 from the release notes>
+   EXPECTED=<tarball sha256 from the release page>
    curl -fsSLO "https://github.com/FullFran/hcs/releases/download/v$V/hcs-$V.tar.gz"
    echo "$EXPECTED  hcs-$V.tar.gz" | sha256sum -c -
    mkdir -p vendor/hcs
