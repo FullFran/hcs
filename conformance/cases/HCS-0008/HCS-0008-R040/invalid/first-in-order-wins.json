@@ -1,0 +1,30 @@
+{
+  "description": "An adapter that lets the earlier entry keep the name does not conform: R006 projects neither.",
+  "requirements": [
+    "HCS-0008-R040"
+  ],
+  "level": "host",
+  "input": {
+    "namingRule": "<server>_<tool>",
+    "servers": [
+      {
+        "entry": "dev.example.files",
+        "server": "files",
+        "tools": [
+          "x_list"
+        ]
+      },
+      {
+        "entry": "dev.example.files-x",
+        "server": "files_x",
+        "tools": [
+          "list"
+        ]
+      }
+    ],
+    "hostTools": []
+  },
+  "expect": {
+    "behaviour": "The adapter projects dev.example.files and reports only dev.example.files-x, so the outcome depends on the order of the generation."
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "description": "An entry whose tool collides with a host-provided tool is not projected and is reported unsupported_contribution.",
+  "requirements": [
+    "HCS-0008-R040"
+  ],
+  "level": "host",
+  "input": {
+    "namingRule": "<server>_<tool>",
+    "servers": [
+      {
+        "entry": "dev.example.files",
+        "server": "files",
+        "tools": [
+          "x_list"
+        ]
+      }
+    ],
+    "hostTools": [
+      "files_x_list"
+    ]
+  },
+  "expect": {
+    "behaviour": "The server tool would take the name of a tool the host provides. The adapter does not project dev.example.files and reports unsupported_contribution for it, not ambiguous_provider."
+  }
+}

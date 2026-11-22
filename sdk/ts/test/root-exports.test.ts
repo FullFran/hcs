@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as root from '../src/index.ts';
 
-// Root export names as of main at dff5076, before the sync namespace.
+// Root export names as of main at dff5076, before the sync namespace, plus the tool-name helper (HCS-0009-R007, HCS-0008-R040).
 const BASELINE = [
   'ALLOWED_TRANSITIONS',
   'CapabilityRegistry',
@@ -28,6 +28,7 @@ const BASELINE = [
   'answerProposal',
   'applyDesiredSet',
   'buildPackage',
+  'buildToolNameMap',
   'builtinCapabilities',
   'canTransition',
   'capabilitySatisfies',
@@ -41,6 +42,7 @@ const BASELINE = [
   'collectVerifiedBlob',
   'digestPayload',
   'dispatch',
+  'engineToolName',
   'entryDir',
   'evaluate',
   'fetchPackageBytes',

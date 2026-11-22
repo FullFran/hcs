@@ -1,0 +1,32 @@
+{
+  "description": "A collision between entries takes precedence over a collision with a host tool.",
+  "requirements": [
+    "HCS-0008-R040"
+  ],
+  "level": "host",
+  "input": {
+    "namingRule": "<server>_<tool>",
+    "servers": [
+      {
+        "entry": "dev.example.files",
+        "server": "files",
+        "tools": [
+          "x_list"
+        ]
+      },
+      {
+        "entry": "dev.example.files-x",
+        "server": "files_x",
+        "tools": [
+          "list"
+        ]
+      }
+    ],
+    "hostTools": [
+      "files_x_list"
+    ]
+  },
+  "expect": {
+    "behaviour": "The tools collide with each other and with a host tool. The adapter reports ambiguous_provider for both entries, not unsupported_contribution, and projects neither."
+  }
+}

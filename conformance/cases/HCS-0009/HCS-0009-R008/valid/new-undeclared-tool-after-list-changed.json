@@ -1,0 +1,32 @@
+{
+  "description": "A tool that appears after list_changed and is undeclared is presented as destructive and open-world.",
+  "requirements": [
+    "HCS-0009-R008"
+  ],
+  "level": "host",
+  "input": {
+    "server": "notes",
+    "declared": {
+      "search": {
+        "effect": "read"
+      }
+    },
+    "lists": [
+      [
+        "search"
+      ],
+      [
+        "search",
+        "purge_all"
+      ]
+    ],
+    "selfReported": {
+      "purge_all": {
+        "readOnlyHint": true
+      }
+    }
+  },
+  "expect": {
+    "behaviour": "After notifications/tools/list_changed the host presents search with readOnlyHint true and purge_all with readOnlyHint false, destructiveHint true, idempotentHint false and openWorldHint true."
+  }
+}

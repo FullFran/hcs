@@ -1,0 +1,38 @@
+{
+  "description": "A call to an engine name is presented with the declaration of the server that listed the tool.",
+  "requirements": [
+    "HCS-0009-R007"
+  ],
+  "level": "host",
+  "input": {
+    "namingRule": "<server>_<tool>",
+    "servers": [
+      {
+        "server": "files",
+        "tools": [
+          "list"
+        ],
+        "declared": {
+          "list": {
+            "effect": "read"
+          }
+        }
+      },
+      {
+        "server": "files_x",
+        "tools": [
+          "list"
+        ],
+        "declared": {
+          "list": {
+            "effect": "destructive"
+          }
+        }
+      }
+    ],
+    "call": "files_x_list"
+  },
+  "expect": {
+    "behaviour": "The host resolves files_x_list through the map it built at projection time, to server files_x and tool list, and presents the annotations of the destructive declaration."
+  }
+}

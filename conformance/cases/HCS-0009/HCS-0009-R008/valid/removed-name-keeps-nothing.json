@@ -1,0 +1,27 @@
+{
+  "description": "A name absent from a list leaves no presented annotations behind.",
+  "requirements": [
+    "HCS-0009-R008"
+  ],
+  "level": "host",
+  "input": {
+    "server": "notes",
+    "declared": {
+      "search": {
+        "effect": "read"
+      }
+    },
+    "lists": [
+      [
+        "search"
+      ],
+      [],
+      [
+        "search"
+      ]
+    ]
+  },
+  "expect": {
+    "behaviour": "The host presents search with the read annotations each time it is listed, and keeps no annotation for it while the second list omits it."
+  }
+}

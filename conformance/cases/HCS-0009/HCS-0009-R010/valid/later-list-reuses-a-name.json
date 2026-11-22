@@ -1,0 +1,43 @@
+{
+  "description": "A tool listed later whose engine name is taken is not presented and is reported.",
+  "requirements": [
+    "HCS-0009-R010"
+  ],
+  "level": "host",
+  "input": {
+    "namingRule": "<server>_<tool>",
+    "servers": [
+      {
+        "server": "files",
+        "lists": [
+          [
+            "x_list"
+          ]
+        ],
+        "declared": {
+          "x_list": {
+            "effect": "read"
+          }
+        }
+      },
+      {
+        "server": "files_x",
+        "lists": [
+          [],
+          [
+            "list"
+          ]
+        ],
+        "declared": {
+          "list": {
+            "effect": "destructive"
+          }
+        }
+      }
+    ],
+    "afterListChanged": "files_x"
+  },
+  "expect": {
+    "behaviour": "The host does not present the list tool of files_x, reports it to the operator, and keeps presenting files_x_list with the read declaration of files."
+  }
+}
