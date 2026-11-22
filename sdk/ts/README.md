@@ -47,6 +47,7 @@ Older closed-schema catalog validators reject `contentId`; this draft addition d
 | `src/host.ts` | HCS-0003 (host profile) | RE;write 7e9e903 `src/hcs/host.ts` |
 | `src/signing/` (exported as `signing`) | HCS-0007 (DISTRO-1) | written from the spec and `conformance/runner/distro1.py` |
 | `src/signing/keys.ts` (`signing.isPrivateKeyMaterial`, `seedToPem`, `readSignerPem`) | HCS-0007 (R019, key handling) | SDK extension: PKCS#8 PEM key files and a private-key guard |
+| `src/sync/` (exported as `sync`) | HCS-0007 (section 3.3, R015) | SDK extension (experimental): `syncSigned`, `AcceptedStateStore` and a file-backed store |
 | `src/cli/` (the `hcs-sdk` binary, not exported from the library) | HCS-0007 (R002, R003, R004), HCS-0001 (R007, R017) | SDK extension: publisher CLI over `signing` and `buildPackage` |
 | `src/projection/` (exported as `projection`) | HCS-0008 (host adapter), host lock (SDK extension) | written from the spec and `conformance/runner/projection.py` |
 | `src/mcp-server.ts` | HCS-0008 (R010, R011) | written from the spec and `conformance/runner/projection.py` |
@@ -96,6 +97,32 @@ Limit: a bare 32-byte seed is byte-for-byte indistinguishable from a 32-byte pub
 `signing.nextSequence(issued, requested?)` is the publisher side: it returns one above the highest issued sequence (1 when none), or `requested` when it is above every issued one, and throws a `signing.SigningRejection` (`code: 'rollback_rejected'`, `requirement: 'HCS-0007-R008'`) when `requested` is at or below the highest, so a sequence is never reused. A value that is not an integer from 1 to 2^53 - 1 throws a `TypeError`.
 
 The functions do no I/O and take no lock. The caller owns persistence and concurrency (a server wraps the check and the write in its own lock) and decides which states to compare (per assignment or per binding).
+
+## Signed sync (HCS-0007, experimental)
+
+`applyDesiredSet` does not verify signatures. A host that consumes a signed catalog (DISTRO-1) reaches it through `sync.syncSigned` or through `signing.verifySignedCatalog`.
+
+`sync.syncSigned(options)` reads the accepted state, fetches the key set and the envelope from a `SignedSource`, verifies them only through `signing.verifySignedCatalog` (key set, envelope, then catalog), records the new accepted state, and calls `applyDesiredSet` with the verified catalog.
+
+```ts
+import { sync, HcsFailure } from '@fullfran/hcs-sdk';
+
+const source: sync.SignedSource = {
+  keySet: async signal => (await fetch(`${base}/keyset.json`, { signal })).json(),
+  envelope: async signal => (await fetch(`${base}/envelope.json`, { signal })).json(),
+};
+const result = await sync.syncSigned({
+  source, trustAnchor, assignment: { channel: 'stable' }, apply: { host, stateDir },
+});
+```
+
+- `scope` (default `"default"`) names the accepted state and is opaque to the SDK; `assignment` is an opaque `Record<string, string>` supplied by the host.
+- Accepted state is stored by `fileAcceptedStateStore(dir)` (the default, with `dir` = `apply.stateDir`) in `<dir>/accepted/<scope>.json`, format `hcs-accepted-state/1`, mode 0600. It is written to a temp file in the same directory, fsynced and renamed. A scope must match `^[A-Za-z0-9._-]{1,128}$` and not be `.` or `..`; otherwise `TypeError`. Pass `store` to use another `AcceptedStateStore`.
+- A verification failure throws `HcsFailure` with the codes and requirement ids of `signing` (the error detail `x-hcs-sdk-stage` with the default prefix is `key-set` or `envelope`); the state is not written (R015).
+- The state is written after verification and before apply, and it stays written when apply fails: an older envelope stays rejected and the same envelope can be retried.
+- A state file that exists but cannot be read or validated throws `AcceptedStateError` before anything is fetched or applied; it is never treated as an empty state, because that would disable rollback protection.
+- An unreachable source throws an ordinary error and writes nothing. `verifyOnly: true` records the state and skips apply.
+- `syncSigned` does not take the host lock for the accepted-state read-verify-write; run one syncer per `scope`. HTTP, polling, trust-anchor management and multi-binding semantics are out of scope.
 
 ## Projection (HCS-0008)
 
