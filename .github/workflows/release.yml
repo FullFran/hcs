@@ -22,6 +22,9 @@ permissions:
 
 env:
   REHEARSAL_VERSION: 0.0.0-rehearsal
+  # Exact Node version (and so its bundled npm) that packs the SDK tarball, so anyone can rebuild
+  # it byte for byte (#118). Node 24.14.1 with npm 11.21.2 reproduces the published draft.11 tarball.
+  NODE_VERSION: 24.14.1
 
 jobs:
   ready:
@@ -91,7 +94,7 @@ jobs:
           python-version: "3.12"
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: sdk/ts/package-lock.json
       - name: Commit the rehearsal version
