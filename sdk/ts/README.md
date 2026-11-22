@@ -47,7 +47,7 @@ Older closed-schema catalog validators reject `contentId`; this draft addition d
 | `src/host.ts` | HCS-0003 (host profile) | RE;write 7e9e903 `src/hcs/host.ts` |
 | `src/signing/` (exported as `signing`) | HCS-0007 (DISTRO-1) | written from the spec and `conformance/runner/distro1.py` |
 | `src/signing/keys.ts` (`signing.isPrivateKeyMaterial`, `seedToPem`, `readSignerPem`) | HCS-0007 (R019, key handling) | SDK extension: PKCS#8 PEM key files and a private-key guard |
-| `src/sync/` (exported as `sync`) | HCS-0007 (section 3.3, R015) | SDK extension (experimental): `syncSigned`, `AcceptedStateStore` and a file-backed store |
+| `src/sync/` (exported as `sync`) | HCS-0007 (section 3.3, R015, R031) | SDK extension (experimental): `syncSigned`, `AcceptedStateStore`, a file-backed store and `assignmentScope` |
 | `src/cli/` (the `hcs-sdk` binary, not exported from the library) | HCS-0007 (R002, R003, R004), HCS-0001 (R007, R017) | SDK extension: publisher CLI over `signing` and `buildPackage` |
 | `src/projection/` (exported as `projection`) | HCS-0008 (host adapter), host lock (SDK extension) | written from the spec and `conformance/runner/projection.py` |
 | `src/mcp-server.ts` | HCS-0008 (R010, R011) | written from the spec and `conformance/runner/projection.py` |
@@ -97,7 +97,11 @@ Limit: a bare 32-byte seed is byte-for-byte indistinguishable from a 32-byte pub
 
 `signing.nextSequence(issued, requested?)` is the publisher side: it returns one above the highest issued sequence (1 when none), or `requested` when it is above every issued one, and throws a `signing.SigningRejection` (`code: 'rollback_rejected'`, `requirement: 'HCS-0007-R008'`) when `requested` is at or below the highest, so a sequence is never reused. A value that is not an integer from 1 to 2^53 - 1 throws a `TypeError`.
 
-The functions do no I/O and take no lock. The caller owns persistence and concurrency (a server wraps the check and the write in its own lock) and decides which states to compare (per assignment or per binding).
+The functions do no I/O and take no lock. The caller owns persistence and concurrency (a server wraps the check and the write in its own lock) and passes the state of the assignment it verifies for, never the state of another assignment (HCS-0007-R031).
+
+### Keys limited to a binding (HCS-0007-R030)
+
+An online key may carry `binding`, a non-empty map with the grammar of the envelope `binding` (`checkKeySetShape` reports `manifest_invalid` with `HCS-0007-R002` otherwise). `verifyEnvelope` counts its signature toward the threshold only when `signing.bindingCovers(key.binding, envelope.binding)` is true: no `binding`, or every member of it is an own member of the envelope's `binding` with an equal value. Equality only, no patterns; inherited names such as `constructor` never match. An envelope whose valid signatures are all out of scope fails step 2 with `signature_invalid` (`HCS-0007-R005`). `signing.createKeySet({ version, threshold?, keys, extensions? }, rootSigners)` builds, shape-checks and signs a key set whose keys may carry `binding`.
 
 ## Signed sync (HCS-0007, experimental)
 
@@ -118,12 +122,13 @@ const result = await sync.syncSigned({
 ```
 
 - `scope` (default `"default"`) names the accepted state and is opaque to the SDK; `assignment` is an opaque `Record<string, string>` supplied by the host.
+- A host that is or was enrolled for more than one assignment keeps one accepted state per assignment (HCS-0007-R031): pass `scope: sync.assignmentScope(assignment)`, which is `assignment-` and the hex sha256 of the RFC 8785 form of the assignment, equal for equal assignments whatever the member order. The default stays `"default"`, so existing state files are read as before; a host that moves to per-assignment scopes treats its `"default"` state as the state of its current assignment. The record that says which assignment is current, and its atomic replacement (HCS-0007-R032), belong to the host.
 - Accepted state is stored by `fileAcceptedStateStore(dir)` (the default, with `dir` = `apply.stateDir`) in `<dir>/accepted/<scope>.json`, format `hcs-accepted-state/1`, mode 0600. It is written to a temp file in the same directory, fsynced and renamed. A scope must match `^[A-Za-z0-9._-]{1,128}$` and not be `.` or `..`; otherwise `TypeError`. Pass `store` to use another `AcceptedStateStore`.
 - A verification failure throws `HcsFailure` with the codes and requirement ids of `signing` (the error detail `x-hcs-sdk-stage` with the default prefix is `key-set` or `envelope`); the state is not written (R015).
 - The state is written after verification and before apply, and it stays written when apply fails: an older envelope stays rejected and the same envelope can be retried.
 - A state file that exists but cannot be read or validated throws `AcceptedStateError` before anything is fetched or applied; it is never treated as an empty state, because that would disable rollback protection.
 - An unreachable source throws an ordinary error and writes nothing. `verifyOnly: true` records the state and skips apply.
-- `syncSigned` holds the host lock for `apply.stateDir` for the whole call, including `verifyOnly`; a concurrent call on the same directory throws `HostBusyError`. A custom `store` outside `apply.stateDir` is not covered by that lock. HTTP, polling, trust-anchor management and multi-binding semantics are out of scope.
+- `syncSigned` holds the host lock for `apply.stateDir` for the whole call, including `verifyOnly`; a concurrent call on the same directory throws `HostBusyError`. A custom `store` outside `apply.stateDir` is not covered by that lock. HTTP, polling, trust-anchor management, enrollment and several current assignments at once are out of scope.
 
 ## Projection (HCS-0008)
 
