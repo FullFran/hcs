@@ -21,3 +21,4 @@ export * from './mcp-server.ts';
 export * from './tool-effects.ts';
 export * as signing from './signing/index.ts';
 export * as projection from './projection/index.ts';
+export * as sync from './sync/index.ts';
